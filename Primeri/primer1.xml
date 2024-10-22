@@ -1,0 +1,169 @@
+<annotation>
+    <folder>coco2VOC</folder>
+    <filename>primer1.png</filename>
+    <path>C:\Users\djuri\PycharmProjects\coco2voc\coco2VOC\primer1.png</path>
+    <source>
+        <database>Unknown</database>
+    </source>
+    <size>
+        <width>830</width>
+        <height>549</height>
+        <depth>3</depth>
+    </size>
+    <segmented>0</segmented>
+    <object>
+        <name>Resistor</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>115</xmin>
+            <ymin>320</ymin>
+            <xmax>173</xmax>
+            <ymax>348</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Resistor</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>292</xmin>
+            <ymin>322</ymin>
+            <xmax>355</xmax>
+            <ymax>349</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Diode</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>199</xmin>
+            <ymin>270</ymin>
+            <xmax>228</xmax>
+            <ymax>304</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Diode</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>46</xmin>
+            <ymin>272</ymin>
+            <xmax>76</xmax>
+            <ymax>303</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Relay</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>27</xmin>
+            <ymin>93</ymin>
+            <xmax>46</xmax>
+            <ymax>150</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Relay</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>170</xmin>
+            <ymin>93</ymin>
+            <xmax>190</xmax>
+            <ymax>146</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Anode</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>412</xmin>
+            <ymin>24</ymin>
+            <xmax>435</xmax>
+            <ymax>41</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Resistor</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>546</xmin>
+            <ymin>120</ymin>
+            <xmax>568</xmax>
+            <ymax>180</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Transistor</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>533</xmin>
+            <ymin>241</ymin>
+            <xmax>574</xmax>
+            <ymax>283</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Transistor</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>638</xmin>
+            <ymin>199</ymin>
+            <xmax>692</xmax>
+            <ymax>251</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Grounding node</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>619</xmin>
+            <ymin>486</ymin>
+            <xmax>660</xmax>
+            <ymax>514</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Other</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>748</xmin>
+            <ymin>318</ymin>
+            <xmax>778</xmax>
+            <ymax>365</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Capacitor</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>420</xmin>
+            <ymin>323</ymin>
+            <xmax>439</xmax>
+            <ymax>347</ymax>
+        </bndbox>
+    </object>    <object>
+        <name>Resistor</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>545</xmin>
+            <ymin>400</ymin>
+            <xmax>570</xmax>
+            <ymax>457</ymax>
+        </bndbox>
+    </object>
+</annotation>
