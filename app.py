@@ -22,6 +22,7 @@ class GUI:
 
     def display_window(self):
         self.window = tk.Tk()   
+        self.show_lines_var = tk.BooleanVar()
         self.window.wm_attributes('-topmost', 1)
         self.window.title("Line Detection")
         # self.window.geometry('1280x720')x
@@ -38,13 +39,21 @@ class GUI:
 
         sidebar = ttk.Frame(self.mainframe, padding='3 3 12 12')
         sidebar.grid(column=0, row=0, rowspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
-        sidebar.rowconfigure(4, weight=1)  # Add weight to the row before the button to push it to the bottom
+        sidebar.rowconfigure(6, weight=1)  # Add weight to the row before the button to push it to the bottom
 
         ttk.Button(sidebar, text="Connect Lines", command=lambda: self.line_detection.connect_lines(self.display_image)).grid(column=0, row=0, sticky=(tk.W))
         ttk.Button(sidebar, text="Straighten Lines", command=lambda: self.line_detection.straighten_lines(self.display_image)).grid(column=0, row=1, sticky=(tk.W))
         ttk.Button(sidebar, text="Remove Short Lines", command=lambda: self.line_detection.remove_short_lines(self.display_image)).grid(column=0, row=2, sticky=(tk.W))
         ttk.Button(sidebar, text="Toggle Add-Line Mode", command=self.line_detection.toggle_mode).grid(column=0, row=3, sticky=(tk.W))
-        ttk.Button(sidebar, text="Refresh", command=lambda: self.line_detection.refresh(self.display_image)).grid(column=0, row=4, sticky=(tk.W,tk.S))
+
+        ttk.Checkbutton(
+            sidebar, 
+            text="Show only lines", 
+            variable=self.show_lines_var, 
+            command=lambda: self.line_detection.display_lines_and_components(self.display_image) if self.show_lines_var.get() else self.line_detection.update_image(self.line_detection.original_lines, self.display_image)
+        ).grid(column=0, row=4, sticky=(tk.W))
+
+        ttk.Button(sidebar, text="Refresh", command=lambda: self.line_detection.refresh(self.display_image)).grid(column=0, row=6, sticky=(tk.W,tk.S))
 
         self.image_frame = ttk.Frame(self.mainframe)
         self.image_frame.grid(column=1, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))

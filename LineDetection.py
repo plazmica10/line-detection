@@ -16,6 +16,7 @@ class LineDetection:
         self.original_dimensions = None #original image dimensions
         self.resized_dimensions = None  #resized image dimensions
         self.component_mask = None      #mask for components in the image
+
     def open_image(self,display_image,parent_window):
         file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.png")],parent=parent_window)
         
@@ -46,6 +47,7 @@ class LineDetection:
             self.show_image(img,display_image)
 
     def show_image(self,img,display_image):
+
         lined_image = self.line_detection(img, self.component_mask)
         
         self.highlight_components(lined_image)
@@ -117,7 +119,7 @@ class LineDetection:
                     extended_line2 = extend_line(line2, max_extension_length)
                     new_lines = np.append(new_lines, [extended_line1, extended_line2], axis=0)
 
-        bundler = Merger()
+        bundler = Merger(min_distance=self.max_line_gap)
         new_lines = bundler.process_lines(new_lines)
         print(len(new_lines))
         self.update_image(new_lines,display_image)
@@ -187,6 +189,7 @@ class LineDetection:
                 self.original_lines = np.append(self.original_lines, [new_line], axis=0)
                 self.update_image(self.original_lines,display_image)
                 self.start_point = None
+
     def update_length(self, min_line_len):
         self.min_line_len = min_line_len
         print(self.min_line_len)
@@ -204,4 +207,22 @@ class LineDetection:
     def refresh(self,display_image):
         self.show_image(self.original_image,display_image)
 
-            
+    def display_lines_and_components(self, display_image):
+    # Create a white image
+        white_image = np.ones_like(self.original_image) * 255
+
+        # Draw each line segment
+        for line in self.original_lines:
+            x1, y1, x2, y2 = line.flatten()
+            cv2.line(white_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0), 2)
+            # Draw circles at the beginning and end of each line segment
+            cv2.circle(white_image, (int(x1), int(y1)), 5, (255, 0, 0), -1)
+            cv2.circle(white_image, (int(x2), int(y2)), 5, (0, 0, 255), -1)
+
+        # Highlight components
+        self.highlight_components(white_image)
+        # Display the resulting image
+        display_image(resize_image(white_image))
+
+
+
