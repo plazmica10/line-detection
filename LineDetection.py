@@ -16,7 +16,7 @@ class LineDetection:
         self.original_dimensions = None #original image dimensions
         self.resized_dimensions = None  #resized image dimensions
         self.component_mask = None      #mask for components in the image
-        self.show_lines_var = False     #flag for showing only lines
+        self.show_lines_only = False     #flag for showing only lines
 
     def open_image(self,display_image,parent_window):
         file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.png")],parent=parent_window)
@@ -60,12 +60,6 @@ class LineDetection:
     def line_detection(self, img, component_mask): 
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-        #amplifying lines in the image
-        for i in range(gray.shape[0]):
-            for j in range(gray.shape[1]):
-                if gray[i, j] > 40:
-                    gray[i, j] = 255
-
         empty = np.zeros((img.shape), np.uint8)
         mask = cv2.bitwise_and(gray, gray, mask=component_mask)
         lsd = cv2.createLineSegmentDetector(0)
@@ -75,21 +69,21 @@ class LineDetection:
             x0, y0, x1, y1 = l.flatten()
             if not self.is_diagonal_line(x0, y0, x1, y1):
                 cv2.line(empty, (int(x0), int(y0)), (int(x1), int(y1)), 255, 2, cv2.LINE_AA)
-
         img = cv2.addWeighted(img, 1, empty, 1, 0)
 
         return img
     
-    def is_diagonal_line(self,x0, y0, x1, y1, threshold=10):
+    def is_diagonal_line(self,x0, y0, x1, y1, threshold=30):
         angle = math.degrees(math.atan2(y1 - y0, x1 - x0))
         return not (abs(angle) < threshold or abs(angle - 90) < threshold or abs(angle + 90) < threshold)
     
     ###FILTERING FUNCTIONS###
-    def merge_lines(self,display_image):
+    def merge_lines(self,display_image,merging_gap):
         new_lines = self.detected_lines.copy()
 
-        bundler = Merger(min_distance=self.max_line_gap)
+        bundler = Merger(min_distance=merging_gap)
         new_lines = bundler.process_lines(new_lines)
+        new_lines = np.array([line for line in new_lines if not self.is_diagonal_line(line[0][0], line[0][1], line[0][2], line[0][3])])
         self.show_lines(display_image,new_lines)
 
     def remove_short_lines(self,display_image,line_lengh):
@@ -111,6 +105,36 @@ class LineDetection:
         new_lines = np.array(new_lines)
         self.show_lines(display_image,new_lines)
 
+    def connect_lines(self,display_image,line_gap):
+        horizontal_lines = []
+        vertical_lines = []
+
+        for line in self.detected_lines:
+            x0,y0,x1,y1 = line.flatten()
+            if(abs(x0 - x1) > abs(y0-y1)):
+                horizontal_lines.append(line)
+            else:
+                vertical_lines.append(line)
+        horizontal_lines = np.array(horizontal_lines)
+        vertical_lines = np.array(vertical_lines)
+
+        new_vertical_lines = []
+        for i in range(len(vertical_lines)):
+            x0,y0,x1,y1 = vertical_lines[i].flatten()
+            if x0 == 0:
+                continue
+            for j in range(i+1,len(vertical_lines)):
+                x2,y2,x3,y3 = vertical_lines[j].flatten()
+                if abs(x0-x2) < line_gap and (abs(y1-y2) < line_gap or abs(y0-y3) < line_gap) and abs(y0-y1) > line_gap and abs(y2-y3) > line_gap:
+                    merged_line = [x0,min(y0,y2),x2,max(y1,y3)]
+                    vertical_lines[i] = merged_line
+                    vertical_lines[j] = [[0,0,0,0]]
+            new_vertical_lines.append(vertical_lines[i])
+
+        new_vertical_lines = np.array([line for line in new_vertical_lines if line[0][0] != 0])
+        all_lines = np.append(horizontal_lines,new_vertical_lines,axis=0)
+        self.show_lines(display_image,all_lines)
+                    
     def add_lines(self, event, display_image):
         if self.add_mode:
             if self.start_point is None:
@@ -121,7 +145,7 @@ class LineDetection:
                 end_scaled = self.scale_to_original(end_point)
                 new_line = np.array([[start_scaled[0], start_scaled[1], end_scaled[0], end_scaled[1]]])
                 self.detected_lines = np.append(self.detected_lines, [new_line], axis=0)
-                if self.show_lines_var:
+                if self.show_lines_only:
                     self.display_lines_and_components(display_image)
                 else:
                     self.display_lined_image(display_image)
@@ -130,7 +154,7 @@ class LineDetection:
     ###DISPPLAY FUNCTIONS###
     def show_lines(self,display_image,new_lines):
         self.detected_lines = new_lines
-        if self.show_lines_var:
+        if self.show_lines_only:
             self.display_lines_and_components(display_image)
         else:
             self.display_lined_image(display_image)
@@ -183,7 +207,7 @@ class LineDetection:
     
     def refresh(self,display_image):
         self.show_image(self.original_image,display_image)
-        self.show_lines_var = False
+        self.show_lines_only = False
 
     def toggle_mode(self):
         self.add_mode = not self.add_mode

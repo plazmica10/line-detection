@@ -22,7 +22,7 @@ class GUI:
 
     def display_window(self):
         self.window = tk.Tk()   
-        self.show_lines_var = tk.BooleanVar()
+        self.show_lines_only = tk.BooleanVar()
         self.window.wm_attributes('-topmost', 1)
         self.window.title("Line Detection")
         # self.window.geometry('1280x720')x
@@ -40,28 +40,65 @@ class GUI:
         sidebar = ttk.Frame(self.mainframe, padding='3 3 12 12')
         sidebar.grid(column=0, row=0, rowspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
         sidebar.rowconfigure(6, weight=1)  # Add weight to the row before the button to push it to the bottom
-
-        ttk.Button(sidebar, text="Merge Lines", command=lambda: self.line_detection.merge_lines(self.display_image)).grid(column=0, row=0, sticky=(tk.W))
-        ttk.Button(sidebar, text="Straighten Lines", command=lambda: self.line_detection.straighten_lines(self.display_image)).grid(column=0, row=1, sticky=(tk.W))
-        self.min_line_len = tk.IntVar()
-        ttk.Entry(sidebar,textvariable=self.min_line_len,width=10).grid(column=1, row=2, sticky=(tk.W))
-        ttk.Button(sidebar, text="Remove Short Lines", command=lambda: self.line_detection.remove_short_lines(self.display_image,self.min_line_len.get())).grid(column=0, row=2, sticky=(tk.W))
-        ttk.Button(sidebar, text="Toggle Add-Line Mode", command=self.line_detection.toggle_mode).grid(column=0, row=3, sticky=(tk.W))
-
-        ttk.Checkbutton(
-            sidebar, 
-            text="Show only lines", 
-            variable=self.show_lines_var, 
-            command=self.toggle_show_lines
-        ).grid(column=0, row=4, sticky=(tk.W))
-
-        ttk.Button(sidebar, text="Refresh", command=lambda: self.line_detection.refresh(self.display_image)).grid(column=0, row=6, sticky=(tk.W,tk.S))
-
+        
         self.image_frame = ttk.Frame(self.mainframe)
         self.image_frame.grid(column=1, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
         self.image_frame.config(width=1100, height=600)  # Reserve 500px for the image_frame
+        
+        self.merging_gap = tk.IntVar(value=5)
+        ttk.Entry(sidebar,textvariable=self.merging_gap,width=10).grid(column=1, row=0, sticky=(tk.W))
+        ttk.Button(
+            sidebar,
+            text="Merge Lines",
+            command=lambda: self.line_detection.merge_lines(self.display_image,self.merging_gap.get())
+        ).grid(column=0, row=0, sticky=(tk.W))
+        
+        ttk.Button(
+            sidebar,
+            text="Straighten Lines",
+            command=lambda: self.line_detection.straighten_lines(self.display_image)
+        ).grid(column=0, row=1, sticky=(tk.W))
+        
+        self.min_line_len = tk.IntVar(value=2)
+        ttk.Entry(sidebar,textvariable=self.min_line_len,width=10).grid(column=1, row=2, sticky=(tk.W))
+        ttk.Button(
+            sidebar,
+            text="Remove Short Lines",
+            command=lambda: self.line_detection.remove_short_lines(self.display_image,self.min_line_len.get())
+        ).grid(column=0, row=2, sticky=(tk.W))
+        
+        ttk.Button(
+            sidebar,
+            text="Toggle Add-Line Mode",
+            command=self.line_detection.toggle_mode
+        ).grid(column=0, row=3, sticky=(tk.W))
+        
+        self.connecting_treshold = tk.IntVar(value=25)
+        ttk.Entry(sidebar,textvariable=self.connecting_treshold,width=10).grid(column=1, row=5, sticky=(tk.W))
+        ttk.Button(
+            sidebar,
+            text="Connect Lines",
+            command=lambda: self.line_detection.connect_lines(self.display_image,self.connecting_treshold.get())
+        ).grid(column=0, row=5, sticky=(tk.W))
+        
+        ttk.Checkbutton(
+            sidebar, 
+            text="Show only lines", 
+            variable=self.show_lines_only, 
+            command=self.toggle_show_lines
+        ).grid(column=0, row=4, sticky=(tk.W))
 
-        ttk.Button(self.mainframe, text="Open Image", command=lambda: self.open_image()).grid(column=1, row=1, sticky=(tk.E))
+        ttk.Button(
+            sidebar,
+            text="Refresh",
+            command=self.refresh_filters
+        ).grid(column=0, row=6, sticky=(tk.W,tk.S))
+
+        ttk.Button(
+            self.mainframe,
+            text="Open Image",
+            command=lambda: self.open_image()
+        ).grid(column=1, row=1, sticky=(tk.E))
 
         self.window.mainloop()
     
@@ -69,13 +106,16 @@ class GUI:
         self.line_detection.open_image(self.display_image,self.window)
 
     def toggle_show_lines(self):
-        if self.show_lines_var.get():
-            self.line_detection.show_lines_var = True
+        if self.show_lines_only.get():
+            self.line_detection.show_lines_only = True
             self.line_detection.display_lines_and_components(self.display_image)
         else:
-            self.line_detection.show_lines_var = False
+            self.line_detection.show_lines_only = False
             self.line_detection.display_lined_image(self.display_image)
 
+    def refresh_filters(self):
+        self.show_lines_only.set(False)
+        self.line_detection.refresh(self.display_image)
 
 if __name__ == '__main__':
     line_detector = LineDetection()
