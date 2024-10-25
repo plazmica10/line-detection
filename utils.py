@@ -6,7 +6,7 @@ def validate_input(min_line_len,max_line_gap):
         max_line_gap = 10
     return min_line_len,max_line_gap
 
-def resize_image(img, max_size=1100):
+def resize_image(img, max_size=1000):
     h,w = img.shape[:2]
     if h > w:
         new_h = max_size

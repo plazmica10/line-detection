@@ -41,16 +41,18 @@ class GUI:
         sidebar.grid(column=0, row=0, rowspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
         sidebar.rowconfigure(6, weight=1)  # Add weight to the row before the button to push it to the bottom
 
-        ttk.Button(sidebar, text="Connect Lines", command=lambda: self.line_detection.connect_lines(self.display_image)).grid(column=0, row=0, sticky=(tk.W))
+        ttk.Button(sidebar, text="Merge Lines", command=lambda: self.line_detection.merge_lines(self.display_image)).grid(column=0, row=0, sticky=(tk.W))
         ttk.Button(sidebar, text="Straighten Lines", command=lambda: self.line_detection.straighten_lines(self.display_image)).grid(column=0, row=1, sticky=(tk.W))
-        ttk.Button(sidebar, text="Remove Short Lines", command=lambda: self.line_detection.remove_short_lines(self.display_image)).grid(column=0, row=2, sticky=(tk.W))
+        self.min_line_len = tk.IntVar()
+        ttk.Entry(sidebar,textvariable=self.min_line_len,width=10).grid(column=1, row=2, sticky=(tk.W))
+        ttk.Button(sidebar, text="Remove Short Lines", command=lambda: self.line_detection.remove_short_lines(self.display_image,self.min_line_len.get())).grid(column=0, row=2, sticky=(tk.W))
         ttk.Button(sidebar, text="Toggle Add-Line Mode", command=self.line_detection.toggle_mode).grid(column=0, row=3, sticky=(tk.W))
 
         ttk.Checkbutton(
             sidebar, 
             text="Show only lines", 
             variable=self.show_lines_var, 
-            command=lambda: self.line_detection.display_lines_and_components(self.display_image) if self.show_lines_var.get() else self.line_detection.update_image(self.line_detection.original_lines, self.display_image)
+            command=self.toggle_show_lines
         ).grid(column=0, row=4, sticky=(tk.W))
 
         ttk.Button(sidebar, text="Refresh", command=lambda: self.line_detection.refresh(self.display_image)).grid(column=0, row=6, sticky=(tk.W,tk.S))
@@ -59,30 +61,21 @@ class GUI:
         self.image_frame.grid(column=1, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
         self.image_frame.config(width=1100, height=600)  # Reserve 500px for the image_frame
 
-        # Frame for Minimum Line Length and Maximum Line Gap
-        parameters_frame = ttk.Frame(self.mainframe)
-        parameters_frame.grid(column=1, row=1, sticky=(tk.W))
-
-        # Minimum Line Length
-        ttk.Label(parameters_frame, text="Minimum Line Length:").grid(column=0, row=0, sticky=(tk.W))
-        self.min_line_len_var = tk.IntVar(value=self.line_detection.get_length())
-        ttk.Entry(parameters_frame, textvariable=self.min_line_len_var).grid(column=0, row=1, sticky=(tk.W))
-        ttk.Button(parameters_frame, text="Apply", command=lambda: self.line_detection.update_length(self.min_line_len_var.get())).grid(column=0, row=2, sticky=(tk.W))
-
-        # Maximum Line Gap
-        ttk.Label(parameters_frame, text="Maximum Line Gap:").grid(column=1, row=0, sticky=(tk.W))
-        self.max_line_gap_var = tk.IntVar(value=self.line_detection.get_gap())
-        ttk.Entry(parameters_frame, textvariable=self.max_line_gap_var).grid(column=1, row=1, sticky=(tk.W))
-        ttk.Button(parameters_frame, text="Apply", command=lambda: self.line_detection.update_gap(self.max_line_gap_var.get())).grid(column=1, row=2, sticky=(tk.W))
-
-        ttk.Button(self.mainframe, text="Open Image", command=lambda: self.open_image()).grid(column=2, row=1, sticky=(tk.W))
+        ttk.Button(self.mainframe, text="Open Image", command=lambda: self.open_image()).grid(column=1, row=1, sticky=(tk.E))
 
         self.window.mainloop()
     
     def open_image(self):
         self.line_detection.open_image(self.display_image,self.window)
-        self.min_line_len_var.set(self.line_detection.get_length())
-        self.max_line_gap_var.set(self.line_detection.get_gap())
+
+    def toggle_show_lines(self):
+        if self.show_lines_var.get():
+            self.line_detection.show_lines_var = True
+            self.line_detection.display_lines_and_components(self.display_image)
+        else:
+            self.line_detection.show_lines_var = False
+            self.line_detection.display_lined_image(self.display_image)
+
 
 if __name__ == '__main__':
     line_detector = LineDetection()
