@@ -9,8 +9,6 @@ class LineDetection:
         self.components = []            #components detected in the image from VOC data
         self.detected_lines = None      #original lines detected upon which changes are performed
         self.original_image = None      #original image for display, to simulate real time changes
-        self.min_line_len = 10          #minimum line length
-        self.max_line_gap = 10          #maximum line gap
         self.add_mode = False           #flag for adding lines toggle button
         self.start_point = None         #starting point of the line
         self.original_dimensions = None #original image dimensions
@@ -62,7 +60,7 @@ class LineDetection:
 
         empty = np.zeros((img.shape), np.uint8)
         mask = cv2.bitwise_and(gray, gray, mask=component_mask)
-        lsd = cv2.createLineSegmentDetector(0)
+        lsd = cv2.createLineSegmentDetector(scale=0.95)
         self.detected_lines = lsd.detect(mask)[0]
 
         for l in self.detected_lines:
@@ -94,13 +92,12 @@ class LineDetection:
         new_lines = []
         for line in self.detected_lines:
             x1, y1, x2, y2 = line.flatten()
-            if(abs(x1 - x2) > self.min_line_len or abs(y1 - y2) > self.min_line_len):
-                if abs(x1 - x2) > abs(y1 - y2):
-                    # Make y-coordinates the same
-                    y1 = y2 = (y1 + y2) // 2
-                else:
-                    # Make x-coordinates the same
-                    x1 = x2 = (x1 + x2) // 2
+            if abs(x1 - x2) > abs(y1 - y2):
+                # Make y-coordinates the same
+                y1 = y2 = (y1 + y2) // 2
+            else:
+                # Make x-coordinates the same
+                x1 = x2 = (x1 + x2) // 2
             new_lines.append([[x1, y1, x2, y2]])
         new_lines = np.array(new_lines)
         self.show_lines(display_image,new_lines)
@@ -118,6 +115,14 @@ class LineDetection:
         horizontal_lines = np.array(horizontal_lines)
         vertical_lines = np.array(vertical_lines)
 
+        vertical_lines = self.connect_vertical_lines(vertical_lines,line_gap)
+        horizontal_lines = self.connect_horizontal_lines(horizontal_lines,line_gap)
+        vertical_lines,horizontal_lines = self.connect_perpendicular_lines(vertical_lines,horizontal_lines,line_gap)
+
+        all_lines = np.append(horizontal_lines,vertical_lines,axis=0)
+        self.show_lines(display_image,all_lines)
+    
+    def connect_vertical_lines(self,vertical_lines,line_gap):
         new_vertical_lines = []
         for i in range(len(vertical_lines)):
             x0,y0,x1,y1 = vertical_lines[i].flatten()
@@ -125,15 +130,110 @@ class LineDetection:
                 continue
             for j in range(i+1,len(vertical_lines)):
                 x2,y2,x3,y3 = vertical_lines[j].flatten()
+                #checking if they are the same line and close enough, also if they are long enough (needs to be removed)
                 if abs(x0-x2) < line_gap and (abs(y1-y2) < line_gap or abs(y0-y3) < line_gap) and abs(y0-y1) > line_gap and abs(y2-y3) > line_gap:
                     merged_line = [x0,min(y0,y2),x2,max(y1,y3)]
                     vertical_lines[i] = merged_line
                     vertical_lines[j] = [[0,0,0,0]]
             new_vertical_lines.append(vertical_lines[i])
-
         new_vertical_lines = np.array([line for line in new_vertical_lines if line[0][0] != 0])
-        all_lines = np.append(horizontal_lines,new_vertical_lines,axis=0)
-        self.show_lines(display_image,all_lines)
+        return new_vertical_lines
+    
+    def connect_horizontal_lines(slef,horizontal_lines,line_gap):
+        new_horizontal_lines = []
+        for i in range(len(horizontal_lines)):
+            x0,y0,x1,y1 = horizontal_lines[i].flatten()
+            if y0 == 0:
+                continue
+            for j in range(i+1,len(horizontal_lines)):
+                x2,y2,x3,y3 = horizontal_lines[j].flatten()
+                #checking if they are the same line and close enough, also if they are long enough (needs to be removed)
+                if abs(y0-y2) < line_gap and (abs(x1-x2) < line_gap or abs(x0-x3) < line_gap) and abs(x0-x1) > line_gap and abs(x2-x3) > line_gap:
+                    merged_line = [min(x0,x2),y0,max(x1,x3),y2]
+                    horizontal_lines[i] = merged_line
+                    horizontal_lines[j] = [[0,0,0,0]]
+            new_horizontal_lines.append(horizontal_lines[i])
+        new_horizontal_lines = np.array([line for line in new_horizontal_lines if line[0][1] != 0])
+        return new_horizontal_lines
+
+    def connect_perpendicular_lines(self,vertical_lines,horizontal_lines,line_gap):
+        for i in range(len(horizontal_lines)):
+            x0,y0,x1,y1 = horizontal_lines[i].flatten()
+            for j in range(len(vertical_lines)):
+                x2,y2,x3,y3 = vertical_lines[j].flatten()
+                ###VERTICAL LINE IS ON THE LEFT###
+                #horizontal start - vertical start
+                if abs(x0-x2) < line_gap and abs(y0-y2) < line_gap:
+                    if x2 < x0:
+                        x0 = x2
+                        horizontal_lines[i] = [[x0, y0, x1, y1]]
+                    if y0 < y2:
+                        y2 = y0
+                        vertical_lines[j] = [[x2,y2,x3,y3]]
+
+                #horizontal start - vertical end
+                if abs(x0-x3) < line_gap and abs(y0-y3) < line_gap:
+                    if x3 < x0:
+                        x0 = x3
+                        horizontal_lines[i] = np.array([[x0, y0, x1, y1]])
+                    if y0 > y3:
+                        y3 = y0
+                        vertical_lines[j] = [[x2,y2,x3,y3]]
+
+                #horizontal end - vertical start
+                if abs(x1-x2) < line_gap and abs(y1-y2) < line_gap:
+                    if x2 < x1:
+                        x1 = x2
+                        horizontal_lines[i] = [[x0, y0, x1, y1]]
+                    if y1 < y2:
+                        y2 = y1
+                        vertical_lines[j] = [[x2,y2,x3,y3]]
+
+                #horizontal end - vertical end
+                if abs(x1-x3) < line_gap and abs(y1-y3) < line_gap:
+                    if x3 < x1:
+                        x1 = x3
+                        horizontal_lines[i] = [[x0, y0, x1, y1]]
+                    if y1 > y3:
+                        y3 = y1
+                        vertical_lines[j] = [[x2,y2,x3,y3]]
+                ###VERTICAL LINE IS ON THE RIGHT###
+                #horizontal end - vertical end
+                if abs(x1-x3) < line_gap and abs(y1-y3) < line_gap:
+                    if x3 > x1:
+                        x1 = x3
+                        horizontal_lines[i] = [[x0, y0, x1, y1]]
+                    if y1 > y3:
+                        y3 = y1
+                        vertical_lines[j] = [[x2,y2,x3,y3]]  
+
+                #horizontal end - vertical start
+                if abs(x1-x2) < line_gap and abs(y1-y2) < line_gap:
+                    if x2 > x1:
+                        x1 = x2
+                        horizontal_lines[i] = [[x0, y0, x1, y1]]
+                    if y1 < y2:
+                        y2 = y1
+                        vertical_lines[j] = [[x2,y2,x3,y3]]  
+                
+                #horizontal start - vertical start
+                if abs(x0-x2) < line_gap and abs(y0-y2) < line_gap:
+                    if x2 > x0:
+                        x0 = x2
+                        horizontal_lines[i] = [[x0, y0, x1, y1]]
+                    if y0 < y2:
+                        y2 = y0
+                        vertical_lines[j] = [[x2,y2,x3,y3]]
+
+                #horizontal start - vertical end
+                if abs(x0-x3) < line_gap and abs(y0-y3) < line_gap:
+                    if x3 > x0:
+                        x0 = x3
+                        horizontal_lines[i] = [[x0, y0, x1, y1]]
+                    if y0 > y3:
+                        y3 = y0
+                        vertical_lines[j] = [[x2,y2,x3,y3]]
+        return vertical_lines,horizontal_lines
                     
     def add_lines(self, event, display_image):
         if self.add_mode:
@@ -211,17 +311,3 @@ class LineDetection:
 
     def toggle_mode(self):
         self.add_mode = not self.add_mode
-
-    def update_length(self, min_line_len):
-        self.min_line_len = min_line_len
-        print(self.min_line_len)
-        
-    def update_gap(self, max_line_gap):
-        self.max_line_gap = max_line_gap
-        print(self.max_line_gap)
-
-    def get_length(self):
-        return self.min_line_len
-    
-    def get_gap(self):
-        return self.max_line_gap
