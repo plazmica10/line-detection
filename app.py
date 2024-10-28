@@ -22,7 +22,6 @@ class GUI:
 
     def display_window(self):
         self.window = tk.Tk()   
-        self.show_lines_only = tk.BooleanVar()
         self.window.wm_attributes('-topmost', 1)
         self.window.title("Line Detection")
         # self.window.geometry('1280x720')x
@@ -75,18 +74,23 @@ class GUI:
             command=lambda: self.line_detection.connect_lines(self.display_image,self.connecting_treshold.get())
         ).grid(column=0, row=3, sticky=(tk.W))
 
-        ttk.Button(
+        self.add_var = tk.BooleanVar()
+        ttk.Checkbutton(
             sidebar,
             text="Add Lines",
+            variable=self.add_var,
             command=self.add_mode
         ).grid(column=0, row=4, sticky=(tk.W))
 
-        ttk.Button(
+        self.remove_var = tk.BooleanVar()
+        ttk.Checkbutton(
             sidebar,
             text="Remove Lines",
+            variable=self.remove_var,
             command=self.remove_mode 
         ).grid(column=0, row=5, sticky=(tk.W))
 
+        self.show_lines_only = tk.BooleanVar()
         ttk.Checkbutton(
             sidebar, 
             text="Show only lines", 
@@ -130,13 +134,15 @@ class GUI:
             self.image_label.bind("<Button-1>", lambda event: self.line_detection.remove_lines(event, self.display_image))
 
     def add_mode(self):
-        self.line_detection.add_mode = True
+        self.line_detection.add_mode = not self.line_detection.add_mode
         self.line_detection.remove_mode = False
+        self.remove_var.set(False)
         self.update_mode()
 
     def remove_mode(self):
-        self.line_detection.remove_mode = True
+        self.line_detection.remove_mode = not self.line_detection.remove_mode
         self.line_detection.add_mode = False
+        self.add_var.set(False)
         self.update_mode()
 
 if __name__ == '__main__':
