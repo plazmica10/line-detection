@@ -39,7 +39,7 @@ class GUI:
         sidebar = ttk.Frame(self.mainframe, padding='3 3 12 12')
         sidebar.grid(column=0, row=0, rowspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
         sidebar.rowconfigure(7, weight=1)  # Add weight to the row before the button to push it to the bottom
-        
+
         self.image_frame = ttk.Frame(self.mainframe)
         self.image_frame.grid(column=1, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
         self.image_frame.config(width=1100, height=600)  # Reserve 500px for the image_frame
@@ -98,11 +98,14 @@ class GUI:
             command=self.toggle_show_lines
         ).grid(column=0, row=6, sticky=(tk.W))
 
+        self.lsd_scale = tk.StringVar(value=self.line_detection.scale)
+        ttk.Entry(sidebar,textvariable=self.lsd_scale,width=10).grid(column=1, row=7, sticky=(tk.S))
         ttk.Button(
             sidebar,
             text="Refresh",
             command=self.refresh_filters
         ).grid(column=0, row=7, sticky=(tk.W,tk.S))
+
 
         ttk.Button(
             self.mainframe,
@@ -125,6 +128,9 @@ class GUI:
 
     def refresh_filters(self):
         self.show_lines_only.set(False)
+        self.add_var.set(False)
+        self.remove_var.set(False)
+        self.line_detection.scale = float(self.lsd_scale.get())
         self.line_detection.refresh(self.display_image)
 
     def update_mode(self):

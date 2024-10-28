@@ -16,6 +16,7 @@ class LineDetection:
         self.resized_dimensions = None  #resized image dimensions
         self.component_mask = None      #mask for components in the image
         self.show_lines_only = False     #flag for showing only lines
+        self.scale = 0.97               #scale for LSD line detection
 
     def open_image(self,display_image,parent_window):
         file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.png")],parent=parent_window)
@@ -41,7 +42,7 @@ class LineDetection:
                     ymax = int(bbox.find('ymax').text)
                     self.components.append((xmin, ymin, xmax, ymax))
                     cv2.rectangle(self.component_mask, (xmin, ymin), (xmax, ymax), 0, -1)
-
+            self.scale = simpledialog.askfloat("Input", "Enter scale of image (0-1) for LSD:", minvalue=0, maxvalue=1, initialvalue=0.97,parent=parent_window)
             self.show_image(img,display_image)
 
     def show_image(self,img,display_image):
@@ -58,10 +59,9 @@ class LineDetection:
 
     def line_detection(self, img, component_mask): 
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-
         empty = np.zeros((img.shape), np.uint8)
         mask = cv2.bitwise_and(gray, gray, mask=component_mask)
-        lsd = cv2.createLineSegmentDetector(scale=0.97)
+        lsd = cv2.createLineSegmentDetector(scale=self.scale)
         self.detected_lines = lsd.detect(mask)[0]
         self.detected_lines = [l for l in self.detected_lines if not self.is_slanted(*l.flatten())]
 
