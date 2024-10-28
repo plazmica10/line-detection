@@ -61,18 +61,17 @@ class LineDetection:
 
         empty = np.zeros((img.shape), np.uint8)
         mask = cv2.bitwise_and(gray, gray, mask=component_mask)
-        lsd = cv2.createLineSegmentDetector(scale=0.95)
+        lsd = cv2.createLineSegmentDetector(scale=0.97)
         self.detected_lines = lsd.detect(mask)[0]
+        self.detected_lines = [l for l in self.detected_lines if not self.is_slanted(*l.flatten())]
 
         for l in self.detected_lines:
             x0, y0, x1, y1 = l.flatten()
-            if not self.is_diagonal_line(x0, y0, x1, y1):
-                cv2.line(empty, (int(x0), int(y0)), (int(x1), int(y1)), 255, 2, cv2.LINE_AA)
+            cv2.line(empty, (int(x0), int(y0)), (int(x1), int(y1)), 255, 2, cv2.LINE_AA)
         img = cv2.addWeighted(img, 1, empty, 1, 0)
-
         return img
     
-    def is_diagonal_line(self,x0, y0, x1, y1, threshold=30):
+    def is_slanted(self,x0, y0, x1, y1, threshold=20):
         angle = math.degrees(math.atan2(y1 - y0, x1 - x0))
         return not (abs(angle) < threshold or abs(angle - 90) < threshold or abs(angle + 90) < threshold)
     
@@ -82,7 +81,7 @@ class LineDetection:
 
         bundler = Merger(min_distance=merging_gap)
         new_lines = bundler.process_lines(new_lines)
-        new_lines = np.array([line for line in new_lines if not self.is_diagonal_line(line[0][0], line[0][1], line[0][2], line[0][3])])
+        new_lines = np.array([line for line in new_lines if not self.is_slanted(line[0][0], line[0][1], line[0][2], line[0][3])])
         self.show_lines(display_image,new_lines)
 
     def remove_short_lines(self,display_image,line_lengh):
@@ -126,31 +125,24 @@ class LineDetection:
     def add_lines(self, event, display_image):
         if self.add_mode:
             if self.start_point is None:
-                print('1')
                 self.start_point = (event.x, event.y)
             else:
-                print('2')
                 end_point = (event.x, event.y)
                 start_scaled = self.scale_to_original(self.start_point)
                 end_scaled = self.scale_to_original(end_point)
                 new_line = np.array([[start_scaled[0], start_scaled[1], end_scaled[0], end_scaled[1]]])
                 self.detected_lines = np.append(self.detected_lines, [new_line], axis=0)
-                if self.show_lines_only:
-                    self.display_lines_and_components(display_image)
-                else:
-                    self.display_lined_image(display_image)
                 self.start_point = None
+                self.show_lines(display_image,self.detected_lines)
 
-    def remove_line(self, event, display_image, padding=5):
+    def remove_lines(self, event, display_image, padding=10):
         if self.remove_mode:
-            # Rescale the click coordinates to match the original image size
             click_point = (event.x, event.y)
             click_scaled = self.scale_to_original(click_point)
             print(click_scaled)
             print('test')
-            # Function to check if a point is near a line segment
+
             def is_point_near_line(px, py, x1, y1, x2, y2, padding):
-                # Calculate the distance from the point to the line segment
                 line_mag = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 if line_mag < 1e-6:
                     return False
@@ -162,14 +154,13 @@ class LineDetection:
                 distance = np.sqrt((px - ix) ** 2 + (py - iy) ** 2)
                 return distance <= padding
             
-            # Iterate through the detected lines to find the one to remove
             for i, line in enumerate(self.detected_lines):
                 x1, y1, x2, y2 = line.flatten()
                 if is_point_near_line(click_scaled[0], click_scaled[1], x1, y1, x2, y2, padding):
                     self.detected_lines = np.delete(self.detected_lines, i, axis=0)
                     break
-            # Update the display image to reflect the removal of the line
-            self.show_lines(display_image)
+            self.remove_mode = True
+            self.show_lines(display_image,self.detected_lines)
         
     ###DISPPLAY FUNCTIONS###
     def show_lines(self,display_image,new_lines):
@@ -180,17 +171,15 @@ class LineDetection:
             self.display_lined_image(display_image)
             
     def display_lined_image(self, display_image):
-        img = self.original_image.copy()
+        img = self.original_image
         line_image = np.copy(self.original_image) * 0
-
         for line in self.detected_lines:
             x1, y1, x2, y2 = line.flatten()
             cv2.line(line_image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
-
         lined_image = cv2.addWeighted(img, 1, line_image, 1, 0)
+
         self.highlight_components(lined_image)
-        lined_image = resize_image(lined_image)
-        display_image(lined_image)
+        display_image(resize_image(lined_image))
         
     def display_lines_and_components(self, display_image):
         # Create a white image
@@ -208,7 +197,7 @@ class LineDetection:
         # Display the resulting image
         display_image(resize_image(white_image))
 
-    ###UTILITY FUNCTIONS###
+    ###OTHER FUNCTIONS###
     def scale_to_original(self, point):
         """Scale a point from the resized image to the original image dimensions."""
         resized_h, resized_w = self.resized_dimensions
@@ -226,10 +215,7 @@ class LineDetection:
         return (scaled_x, scaled_y)
     
     def refresh(self,display_image):
-        self.toggle_mode = False
+        self.add_mode = False
         self.remove_mode = False
         self.show_lines_only = False
         self.show_image(self.original_image,display_image)
-
-    def toggle_mode(self):
-        self.add_mode = not self.add_mode

@@ -18,9 +18,8 @@ class GUI:
         self.image_label = tk.Label(self.image_frame, image=img_tk, bd=2, relief='solid')
         self.image_label.img = img_tk
         self.image_label.grid(column=0, row=0)
-        
-        self.image_label.bind("<Button-1>", lambda event: self.line_detection.add_lines(event, self.display_image))
- 
+        self.update_mode()
+
     def display_window(self):
         self.window = tk.Tk()   
         self.show_lines_only = tk.BooleanVar()
@@ -79,13 +78,13 @@ class GUI:
         ttk.Button(
             sidebar,
             text="Add Lines",
-            command=self.line_detection.toggle_mode
+            command=self.add_mode
         ).grid(column=0, row=4, sticky=(tk.W))
 
         ttk.Button(
             sidebar,
             text="Remove Lines",
-            command=self.line_detection.toggle_remove_mode
+            command=self.remove_mode 
         ).grid(column=0, row=5, sticky=(tk.W))
 
         ttk.Checkbutton(
@@ -123,6 +122,22 @@ class GUI:
     def refresh_filters(self):
         self.show_lines_only.set(False)
         self.line_detection.refresh(self.display_image)
+
+    def update_mode(self):
+        if self.line_detection.add_mode:
+            self.image_label.bind("<Button-1>", lambda event: self.line_detection.add_lines(event, self.display_image))
+        elif self.line_detection.remove_mode:
+            self.image_label.bind("<Button-1>", lambda event: self.line_detection.remove_lines(event, self.display_image))
+
+    def add_mode(self):
+        self.line_detection.add_mode = True
+        self.line_detection.remove_mode = False
+        self.update_mode()
+
+    def remove_mode(self):
+        self.line_detection.remove_mode = True
+        self.line_detection.add_mode = False
+        self.update_mode()
 
 if __name__ == '__main__':
     line_detector = LineDetection()

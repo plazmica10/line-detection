@@ -17,6 +17,7 @@ def resize_image(img, max_size=1000):
         new_h = int(h * max_size / w)
 
     return cv2.resize(img, (new_w, new_h))
+
 def connect_vertical_lines(vertical_lines,line_gap):
     new_vertical_lines = []
     for i in range(len(vertical_lines)):
@@ -26,7 +27,7 @@ def connect_vertical_lines(vertical_lines,line_gap):
         for j in range(i+1,len(vertical_lines)):
             x2,y2,x3,y3 = vertical_lines[j].flatten()
             #checking if they are the same line and close enough, also if they are long enough (needs to be removed)
-            if abs(x0-x2) < line_gap and (abs(y1-y2) < line_gap or abs(y0-y3) < line_gap) and abs(y0-y1) > line_gap and abs(y2-y3) > line_gap:
+            if abs(x0-x2) < line_gap and (abs(y1-y2) < line_gap or abs(y0-y3) < line_gap or abs(y0-y2) < line_gap or abs(y1-y3) < line_gap):
                 merged_line = [x0,min(y0,y2),x2,max(y1,y3)]
                 vertical_lines[i] = merged_line
                 vertical_lines[j] = [[0,0,0,0]]
