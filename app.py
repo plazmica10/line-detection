@@ -18,8 +18,9 @@ class GUI:
         self.image_label = tk.Label(self.image_frame, image=img_tk, bd=2, relief='solid')
         self.image_label.img = img_tk
         self.image_label.grid(column=0, row=0)
+        
         self.image_label.bind("<Button-1>", lambda event: self.line_detection.add_lines(event, self.display_image))
-
+ 
     def display_window(self):
         self.window = tk.Tk()   
         self.show_lines_only = tk.BooleanVar()
@@ -39,7 +40,7 @@ class GUI:
 
         sidebar = ttk.Frame(self.mainframe, padding='3 3 12 12')
         sidebar.grid(column=0, row=0, rowspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
-        sidebar.rowconfigure(6, weight=1)  # Add weight to the row before the button to push it to the bottom
+        sidebar.rowconfigure(7, weight=1)  # Add weight to the row before the button to push it to the bottom
         
         self.image_frame = ttk.Frame(self.mainframe)
         self.image_frame.grid(column=1, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
@@ -67,32 +68,38 @@ class GUI:
             command=lambda: self.line_detection.remove_short_lines(self.display_image,self.min_line_len.get())
         ).grid(column=0, row=2, sticky=(tk.W))
         
-        ttk.Button(
-            sidebar,
-            text="Toggle Add-Line Mode",
-            command=self.line_detection.toggle_mode
-        ).grid(column=0, row=3, sticky=(tk.W))
-        
         self.connecting_treshold = tk.IntVar(value=25)
-        ttk.Entry(sidebar,textvariable=self.connecting_treshold,width=10).grid(column=1, row=5, sticky=(tk.W))
+        ttk.Entry(sidebar,textvariable=self.connecting_treshold,width=10).grid(column=1, row=3, sticky=(tk.W))
         ttk.Button(
             sidebar,
             text="Connect Lines",
             command=lambda: self.line_detection.connect_lines(self.display_image,self.connecting_treshold.get())
+        ).grid(column=0, row=3, sticky=(tk.W))
+
+        ttk.Button(
+            sidebar,
+            text="Add Lines",
+            command=self.line_detection.toggle_mode
+        ).grid(column=0, row=4, sticky=(tk.W))
+
+        ttk.Button(
+            sidebar,
+            text="Remove Lines",
+            command=self.line_detection.toggle_remove_mode
         ).grid(column=0, row=5, sticky=(tk.W))
-        
+
         ttk.Checkbutton(
             sidebar, 
             text="Show only lines", 
             variable=self.show_lines_only, 
             command=self.toggle_show_lines
-        ).grid(column=0, row=4, sticky=(tk.W))
+        ).grid(column=0, row=6, sticky=(tk.W))
 
         ttk.Button(
             sidebar,
             text="Refresh",
             command=self.refresh_filters
-        ).grid(column=0, row=6, sticky=(tk.W,tk.S))
+        ).grid(column=0, row=7, sticky=(tk.W,tk.S))
 
         ttk.Button(
             self.mainframe,

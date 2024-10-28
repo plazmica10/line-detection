@@ -10,6 +10,7 @@ class LineDetection:
         self.detected_lines = None      #original lines detected upon which changes are performed
         self.original_image = None      #original image for display, to simulate real time changes
         self.add_mode = False           #flag for adding lines toggle button
+        self.remove_mode = False
         self.start_point = None         #starting point of the line
         self.original_dimensions = None #original image dimensions
         self.resized_dimensions = None  #resized image dimensions
@@ -115,131 +116,20 @@ class LineDetection:
         horizontal_lines = np.array(horizontal_lines)
         vertical_lines = np.array(vertical_lines)
 
-        vertical_lines = self.connect_vertical_lines(vertical_lines,line_gap)
-        horizontal_lines = self.connect_horizontal_lines(horizontal_lines,line_gap)
-        vertical_lines,horizontal_lines = self.connect_perpendicular_lines(vertical_lines,horizontal_lines,line_gap)
+        vertical_lines = connect_vertical_lines(vertical_lines,line_gap)
+        horizontal_lines = connect_horizontal_lines(horizontal_lines,line_gap)
+        vertical_lines,horizontal_lines = connect_perpendicular_lines(vertical_lines,horizontal_lines,line_gap)
 
         all_lines = np.append(horizontal_lines,vertical_lines,axis=0)
         self.show_lines(display_image,all_lines)
-    
-    def connect_vertical_lines(self,vertical_lines,line_gap):
-        new_vertical_lines = []
-        for i in range(len(vertical_lines)):
-            x0,y0,x1,y1 = vertical_lines[i].flatten()
-            if x0 == 0:
-                continue
-            for j in range(i+1,len(vertical_lines)):
-                x2,y2,x3,y3 = vertical_lines[j].flatten()
-                #checking if they are the same line and close enough, also if they are long enough (needs to be removed)
-                if abs(x0-x2) < line_gap and (abs(y1-y2) < line_gap or abs(y0-y3) < line_gap) and abs(y0-y1) > line_gap and abs(y2-y3) > line_gap:
-                    merged_line = [x0,min(y0,y2),x2,max(y1,y3)]
-                    vertical_lines[i] = merged_line
-                    vertical_lines[j] = [[0,0,0,0]]
-            new_vertical_lines.append(vertical_lines[i])
-        new_vertical_lines = np.array([line for line in new_vertical_lines if line[0][0] != 0])
-        return new_vertical_lines
-    
-    def connect_horizontal_lines(slef,horizontal_lines,line_gap):
-        new_horizontal_lines = []
-        for i in range(len(horizontal_lines)):
-            x0,y0,x1,y1 = horizontal_lines[i].flatten()
-            if y0 == 0:
-                continue
-            for j in range(i+1,len(horizontal_lines)):
-                x2,y2,x3,y3 = horizontal_lines[j].flatten()
-                #checking if they are the same line and close enough, also if they are long enough (needs to be removed)
-                if abs(y0-y2) < line_gap and (abs(x1-x2) < line_gap or abs(x0-x3) < line_gap) and abs(x0-x1) > line_gap and abs(x2-x3) > line_gap:
-                    merged_line = [min(x0,x2),y0,max(x1,x3),y2]
-                    horizontal_lines[i] = merged_line
-                    horizontal_lines[j] = [[0,0,0,0]]
-            new_horizontal_lines.append(horizontal_lines[i])
-        new_horizontal_lines = np.array([line for line in new_horizontal_lines if line[0][1] != 0])
-        return new_horizontal_lines
-
-    def connect_perpendicular_lines(self,vertical_lines,horizontal_lines,line_gap):
-        for i in range(len(horizontal_lines)):
-            x0,y0,x1,y1 = horizontal_lines[i].flatten()
-            for j in range(len(vertical_lines)):
-                x2,y2,x3,y3 = vertical_lines[j].flatten()
-                ###VERTICAL LINE IS ON THE LEFT###
-                #horizontal start - vertical start
-                if abs(x0-x2) < line_gap and abs(y0-y2) < line_gap:
-                    if x2 < x0:
-                        x0 = x2
-                        horizontal_lines[i] = [[x0, y0, x1, y1]]
-                    if y0 < y2:
-                        y2 = y0
-                        vertical_lines[j] = [[x2,y2,x3,y3]]
-
-                #horizontal start - vertical end
-                if abs(x0-x3) < line_gap and abs(y0-y3) < line_gap:
-                    if x3 < x0:
-                        x0 = x3
-                        horizontal_lines[i] = np.array([[x0, y0, x1, y1]])
-                    if y0 > y3:
-                        y3 = y0
-                        vertical_lines[j] = [[x2,y2,x3,y3]]
-
-                #horizontal end - vertical start
-                if abs(x1-x2) < line_gap and abs(y1-y2) < line_gap:
-                    if x2 < x1:
-                        x1 = x2
-                        horizontal_lines[i] = [[x0, y0, x1, y1]]
-                    if y1 < y2:
-                        y2 = y1
-                        vertical_lines[j] = [[x2,y2,x3,y3]]
-
-                #horizontal end - vertical end
-                if abs(x1-x3) < line_gap and abs(y1-y3) < line_gap:
-                    if x3 < x1:
-                        x1 = x3
-                        horizontal_lines[i] = [[x0, y0, x1, y1]]
-                    if y1 > y3:
-                        y3 = y1
-                        vertical_lines[j] = [[x2,y2,x3,y3]]
-                ###VERTICAL LINE IS ON THE RIGHT###
-                #horizontal end - vertical end
-                if abs(x1-x3) < line_gap and abs(y1-y3) < line_gap:
-                    if x3 > x1:
-                        x1 = x3
-                        horizontal_lines[i] = [[x0, y0, x1, y1]]
-                    if y1 > y3:
-                        y3 = y1
-                        vertical_lines[j] = [[x2,y2,x3,y3]]  
-
-                #horizontal end - vertical start
-                if abs(x1-x2) < line_gap and abs(y1-y2) < line_gap:
-                    if x2 > x1:
-                        x1 = x2
-                        horizontal_lines[i] = [[x0, y0, x1, y1]]
-                    if y1 < y2:
-                        y2 = y1
-                        vertical_lines[j] = [[x2,y2,x3,y3]]  
-                
-                #horizontal start - vertical start
-                if abs(x0-x2) < line_gap and abs(y0-y2) < line_gap:
-                    if x2 > x0:
-                        x0 = x2
-                        horizontal_lines[i] = [[x0, y0, x1, y1]]
-                    if y0 < y2:
-                        y2 = y0
-                        vertical_lines[j] = [[x2,y2,x3,y3]]
-
-                #horizontal start - vertical end
-                if abs(x0-x3) < line_gap and abs(y0-y3) < line_gap:
-                    if x3 > x0:
-                        x0 = x3
-                        horizontal_lines[i] = [[x0, y0, x1, y1]]
-                    if y0 > y3:
-                        y3 = y0
-                        vertical_lines[j] = [[x2,y2,x3,y3]]
-        return vertical_lines,horizontal_lines
                     
     def add_lines(self, event, display_image):
         if self.add_mode:
             if self.start_point is None:
+                print('1')
                 self.start_point = (event.x, event.y)
             else:
+                print('2')
                 end_point = (event.x, event.y)
                 start_scaled = self.scale_to_original(self.start_point)
                 end_scaled = self.scale_to_original(end_point)
@@ -251,6 +141,36 @@ class LineDetection:
                     self.display_lined_image(display_image)
                 self.start_point = None
 
+    def remove_line(self, event, display_image, padding=5):
+        if self.remove_mode:
+            # Rescale the click coordinates to match the original image size
+            click_point = (event.x, event.y)
+            click_scaled = self.scale_to_original(click_point)
+            print(click_scaled)
+            print('test')
+            # Function to check if a point is near a line segment
+            def is_point_near_line(px, py, x1, y1, x2, y2, padding):
+                # Calculate the distance from the point to the line segment
+                line_mag = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                if line_mag < 1e-6:
+                    return False
+                u = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / (line_mag ** 2)
+                if u < 0 or u > 1:
+                    return False
+                ix = x1 + u * (x2 - x1)
+                iy = y1 + u * (y2 - y1)
+                distance = np.sqrt((px - ix) ** 2 + (py - iy) ** 2)
+                return distance <= padding
+            
+            # Iterate through the detected lines to find the one to remove
+            for i, line in enumerate(self.detected_lines):
+                x1, y1, x2, y2 = line.flatten()
+                if is_point_near_line(click_scaled[0], click_scaled[1], x1, y1, x2, y2, padding):
+                    self.detected_lines = np.delete(self.detected_lines, i, axis=0)
+                    break
+            # Update the display image to reflect the removal of the line
+            self.show_lines(display_image)
+        
     ###DISPPLAY FUNCTIONS###
     def show_lines(self,display_image,new_lines):
         self.detected_lines = new_lines
@@ -306,8 +226,10 @@ class LineDetection:
         return (scaled_x, scaled_y)
     
     def refresh(self,display_image):
-        self.show_image(self.original_image,display_image)
+        self.toggle_mode = False
+        self.remove_mode = False
         self.show_lines_only = False
+        self.show_image(self.original_image,display_image)
 
     def toggle_mode(self):
         self.add_mode = not self.add_mode
