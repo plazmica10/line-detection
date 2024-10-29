@@ -15,7 +15,7 @@ class LineDetection:
         self.original_dimensions = None #original image dimensions
         self.resized_dimensions = None  #resized image dimensions
         self.component_mask = None      #mask for components in the image
-        self.show_lines_only = False     #flag for showing only lines
+        self.show_lines_only = False    #flag for showing only lines
         self.scale = 0.97               #scale for LSD line detection
 
     def open_image(self,display_image,parent_window):
@@ -48,7 +48,6 @@ class LineDetection:
     def show_image(self,img,display_image):
         lined_image = self.line_detection(img, self.component_mask)
         self.highlight_components(lined_image)
-        # Resizing because original image overflows the window
         resized_image = resize_image(lined_image) 
         self.resized_dimensions = resized_image.shape[:2]
         display_image(resized_image)
@@ -139,18 +138,19 @@ class LineDetection:
         if self.remove_mode:
             click_point = (event.x, event.y)
             click_scaled = self.scale_to_original(click_point)
-            print(click_scaled)
-            print('test')
 
             def is_point_near_line(px, py, x1, y1, x2, y2, padding):
-                line_mag = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                if line_mag < 1e-6:
+                len = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                if len < 1e-6:
                     return False
-                u = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / (line_mag ** 2)
-                if u < 0 or u > 1:
+                #project point onto line
+                d = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / (len ** 2)
+                if d < 0 or d > 1:
                     return False
-                ix = x1 + u * (x2 - x1)
-                iy = y1 + u * (y2 - y1)
+                #find intersection point of line and projection
+                ix = x1 + d * (x2 - x1)
+                iy = y1 + d * (y2 - y1)
+                #check if intersection point is close to the point
                 distance = np.sqrt((px - ix) ** 2 + (py - iy) ** 2)
                 return distance <= padding
             
@@ -162,40 +162,27 @@ class LineDetection:
             self.remove_mode = True
             self.show_lines(display_image,self.detected_lines)
         
-    ###DISPPLAY FUNCTIONS###
+    ###DISPLAY FUNCTION###
     def show_lines(self,display_image,new_lines):
         self.detected_lines = new_lines
         if self.show_lines_only:
-            self.display_lines_and_components(display_image)
+            # Create a white image
+            img = np.ones_like(self.original_image) * 255
+
+            for line in self.detected_lines:
+                x1, y1, x2, y2 = line.flatten()
+                cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0), 2)
+                # Draw circles at the beginning and end of each line segment
+                cv2.circle(img, (int(x1), int(y1)), 5, (255, 0, 0), -1)
+                cv2.circle(img, (int(x2), int(y2)), 5, (0, 0, 255), -1)
         else:
-            self.display_lined_image(display_image)
-            
-    def display_lined_image(self, display_image):
-        img = self.original_image
-        line_image = np.copy(self.original_image) * 0
-        for line in self.detected_lines:
-            x1, y1, x2, y2 = line.flatten()
-            cv2.line(line_image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
-        lined_image = cv2.addWeighted(img, 1, line_image, 1, 0)
-
-        self.highlight_components(lined_image)
-        display_image(resize_image(lined_image))
-        
-    def display_lines_and_components(self, display_image):
-        # Create a white image
-        white_image = np.ones_like(self.original_image) * 255
-        # Draw each line segment
-        for line in self.detected_lines:
-            x1, y1, x2, y2 = line.flatten()
-            cv2.line(white_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0), 2)
-            # Draw circles at the beginning and end of each line segment
-            cv2.circle(white_image, (int(x1), int(y1)), 5, (255, 0, 0), -1)
-            cv2.circle(white_image, (int(x2), int(y2)), 5, (0, 0, 255), -1)
-
-        # Highlight components
-        self.highlight_components(white_image)
-        # Display the resulting image
-        display_image(resize_image(white_image))
+            img = np.copy(self.original_image) * 0
+            for line in self.detected_lines:
+                x1, y1, x2, y2 = line.flatten()
+                cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
+            img = cv2.addWeighted(self.original_image, 1, img, 1, 0)
+        self.highlight_components(img)
+        display_image(resize_image(img))
 
     ###OTHER FUNCTIONS###
     def scale_to_original(self, point):

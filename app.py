@@ -121,10 +121,9 @@ class GUI:
     def toggle_show_lines(self):
         if self.show_lines_only.get():
             self.line_detection.show_lines_only = True
-            self.line_detection.display_lines_and_components(self.display_image)
         else:
             self.line_detection.show_lines_only = False
-            self.line_detection.display_lined_image(self.display_image)
+        self.line_detection.show_lines(self.display_image,self.line_detection.detected_lines)
 
     def refresh_filters(self):
         self.show_lines_only.set(False)
