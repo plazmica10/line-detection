@@ -59,6 +59,11 @@ class LineDetection:
     def line_detection(self, img, component_mask): 
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         empty = np.zeros((img.shape), np.uint8)
+
+        mean_intensity = np.mean(gray)
+        if mean_intensity > 127:
+            gray = cv2.bitwise_not(gray)
+
         mask = cv2.bitwise_and(gray, gray, mask=component_mask)
         lsd = cv2.createLineSegmentDetector(scale=self.scale)
         self.detected_lines = lsd.detect(mask)[0]
@@ -101,7 +106,7 @@ class LineDetection:
         new_lines = np.array(new_lines)
         self.show_lines(display_image,new_lines)
 
-    def connect_lines(self,display_image,line_gap):
+    def connect_lines(self,display_image,line_gap,plane_gap=5):
         horizontal_lines = []
         vertical_lines = []
 
@@ -114,8 +119,8 @@ class LineDetection:
         horizontal_lines = np.array(horizontal_lines)
         vertical_lines = np.array(vertical_lines)
 
-        vertical_lines = connect_vertical_lines(vertical_lines,line_gap)
-        horizontal_lines = connect_horizontal_lines(horizontal_lines,line_gap)
+        vertical_lines = connect_vertical_lines(vertical_lines,line_gap,plane_gap)
+        horizontal_lines = connect_horizontal_lines(horizontal_lines,line_gap,plane_gap)
         vertical_lines,horizontal_lines = connect_perpendicular_lines(vertical_lines,horizontal_lines,line_gap)
 
         all_lines = np.append(horizontal_lines,vertical_lines,axis=0)

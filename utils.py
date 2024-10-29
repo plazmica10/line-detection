@@ -18,7 +18,7 @@ def resize_image(img, max_size=1000):
 
     return cv2.resize(img, (new_w, new_h))
 
-def connect_vertical_lines(vertical_lines,line_gap):
+def connect_vertical_lines(vertical_lines,line_gap,plane_gap=5):
     new_vertical_lines = []
     for i in range(len(vertical_lines)):
         x0,y0,x1,y1 = vertical_lines[i].flatten()
@@ -26,8 +26,8 @@ def connect_vertical_lines(vertical_lines,line_gap):
             continue
         for j in range(i+1,len(vertical_lines)):
             x2,y2,x3,y3 = vertical_lines[j].flatten()
-            #checking if they are the same line and close enough, also if they are long enough (needs to be removed)
-            if abs(x0-x2) < line_gap and (abs(y1-y2) < line_gap or abs(y0-y3) < line_gap or abs(y0-y2) < line_gap or abs(y1-y3) < line_gap):
+            #checking if they are the same line and close enough
+            if abs(x0-x2) < plane_gap and (abs(y1-y2) < line_gap or abs(y0-y3) < line_gap or abs(y0-y2) < line_gap or abs(y1-y3) < line_gap):
                 merged_line = [x0,min(y0,y2),x2,max(y1,y3)]
                 vertical_lines[i] = merged_line
                 vertical_lines[j] = [[0,0,0,0]]
@@ -35,7 +35,7 @@ def connect_vertical_lines(vertical_lines,line_gap):
     new_vertical_lines = np.array([line for line in new_vertical_lines if line[0][0] != 0])
     return new_vertical_lines
     
-def connect_horizontal_lines(horizontal_lines,line_gap):
+def connect_horizontal_lines(horizontal_lines,line_gap,plane_gap=5):
     new_horizontal_lines = []
     for i in range(len(horizontal_lines)):
         x0,y0,x1,y1 = horizontal_lines[i].flatten()
@@ -43,8 +43,8 @@ def connect_horizontal_lines(horizontal_lines,line_gap):
             continue
         for j in range(i+1,len(horizontal_lines)):
             x2,y2,x3,y3 = horizontal_lines[j].flatten()
-            #checking if they are the same line and close enough, also if they are long enough (needs to be removed)
-            if abs(y0-y2) < line_gap and (abs(x1-x2) < line_gap or abs(x0-x3) < line_gap) and abs(x0-x1) > line_gap and abs(x2-x3) > line_gap:
+            #checking if they are the same line and close enough
+            if abs(y0-y2) < plane_gap and (abs(x1-x2) < line_gap or abs(x0-x3) < line_gap):
                 merged_line = [min(x0,x2),y0,max(x1,x3),y2]
                 horizontal_lines[i] = merged_line
                 horizontal_lines[j] = [[0,0,0,0]]

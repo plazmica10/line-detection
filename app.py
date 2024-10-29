@@ -38,40 +38,59 @@ class GUI:
 
         sidebar = ttk.Frame(self.mainframe, padding='3 3 12 12')
         sidebar.grid(column=0, row=0, rowspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
-        sidebar.rowconfigure(7, weight=1)  # Add weight to the row before the button to push it to the bottom
+        sidebar.rowconfigure(8, weight=1)  # Add weight to the row before the button to push it to the bottom
 
         self.image_frame = ttk.Frame(self.mainframe)
         self.image_frame.grid(column=1, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
-        self.image_frame.config(width=1100, height=600)  # Reserve 500px for the image_frame
-        
-        self.merging_gap = tk.IntVar(value=5)
-        ttk.Entry(sidebar,textvariable=self.merging_gap,width=10).grid(column=1, row=0, sticky=(tk.W))
-        ttk.Button(
-            sidebar,
-            text="Merge Lines",
-            command=lambda: self.line_detection.merge_lines(self.display_image,self.merging_gap.get())
-        ).grid(column=0, row=0, sticky=(tk.W))
+        self.image_frame.config(width=1000, height=600)  # Reserve 500px for the image_frame
         
         ttk.Button(
             sidebar,
             text="Straighten Lines",
-            command=lambda: self.line_detection.straighten_lines(self.display_image)
+            command=lambda: self.line_detection.straighten_lines(self.display_image),
+            width=15
+        ).grid(column=0, row=0, sticky=(tk.W))
+
+        self.merging_gap = tk.IntVar(value=5)
+        frame1 = ttk.Frame(sidebar)
+        ttk.Label(frame1, text="Merging Gap").grid(column=0, row=0, sticky=(tk.W))
+        ttk.Entry(frame1,textvariable=self.merging_gap,width=5).grid(column=1, row=0, sticky=(tk.W))
+        frame1.grid(column=1, row=1, sticky=(tk.W))
+        ttk.Button(
+            sidebar,
+            text="Merge Lines",
+            command=lambda: self.line_detection.merge_lines(self.display_image,self.merging_gap.get()),
+            width=15
         ).grid(column=0, row=1, sticky=(tk.W))
         
+        
         self.min_line_len = tk.IntVar(value=2)
-        ttk.Entry(sidebar,textvariable=self.min_line_len,width=10).grid(column=1, row=2, sticky=(tk.W))
+        frame = ttk.Frame(sidebar)
+        ttk.Label(frame, text="Min Line Length").grid(column=0, row=0, sticky=(tk.W))
+        ttk.Entry(frame,textvariable=self.min_line_len,width=5).grid(column=1, row=0, sticky=(tk.W))
+        frame.grid(column=1, row=2, sticky=(tk.W))
+
         ttk.Button(
             sidebar,
             text="Remove Short Lines",
-            command=lambda: self.line_detection.remove_short_lines(self.display_image,self.min_line_len.get())
+            command=lambda: self.line_detection.remove_short_lines(self.display_image,self.min_line_len.get()),
+            width=15
         ).grid(column=0, row=2, sticky=(tk.W))
         
+        entry_frame = ttk.Frame(sidebar)
         self.connecting_treshold = tk.IntVar(value=25)
-        ttk.Entry(sidebar,textvariable=self.connecting_treshold,width=10).grid(column=1, row=3, sticky=(tk.W))
+        self.plane_gap = tk.IntVar(value=5)
+        ttk.Label(entry_frame, text="Gap between lines").grid(column=0, row=0, sticky=(tk.W))
+        ttk.Entry(entry_frame,textvariable=self.connecting_treshold,width=5).grid(column=1, row=0, sticky=(tk.W))
+        ttk.Label(entry_frame, text="X/Y difference").grid(column=0, row=1, sticky=(tk.W))
+        ttk.Entry(entry_frame,textvariable=self.plane_gap,width=5).grid(column=1, row=1, sticky=(tk.W))
+        entry_frame.grid(column=1, row=3, sticky=(tk.W))
+
         ttk.Button(
             sidebar,
             text="Connect Lines",
-            command=lambda: self.line_detection.connect_lines(self.display_image,self.connecting_treshold.get())
+            command=lambda: self.line_detection.connect_lines(self.display_image,self.connecting_treshold.get(),self.plane_gap.get()),
+            width=15
         ).grid(column=0, row=3, sticky=(tk.W))
 
         self.add_var = tk.BooleanVar()
@@ -80,7 +99,7 @@ class GUI:
             text="Add Lines",
             variable=self.add_var,
             command=self.add_mode
-        ).grid(column=0, row=4, sticky=(tk.W))
+        ).grid(column=0, row=5, sticky=(tk.W))
 
         self.remove_var = tk.BooleanVar()
         ttk.Checkbutton(
@@ -88,7 +107,7 @@ class GUI:
             text="Remove Lines",
             variable=self.remove_var,
             command=self.remove_mode 
-        ).grid(column=0, row=5, sticky=(tk.W))
+        ).grid(column=0, row=6, sticky=(tk.W))
 
         self.show_lines_only = tk.BooleanVar()
         ttk.Checkbutton(
@@ -96,15 +115,19 @@ class GUI:
             text="Show only lines", 
             variable=self.show_lines_only, 
             command=self.toggle_show_lines
-        ).grid(column=0, row=6, sticky=(tk.W))
+        ).grid(column=0, row=7, sticky=(tk.W))
 
         self.lsd_scale = tk.StringVar(value=self.line_detection.scale)
-        ttk.Entry(sidebar,textvariable=self.lsd_scale,width=10).grid(column=1, row=7, sticky=(tk.S))
+        newframe = ttk.Frame(sidebar)
+        ttk.Label(newframe, text="Image Scale for LSD").grid(column=1, row=0, sticky=(tk.W))
+        ttk.Entry(newframe,textvariable=self.lsd_scale,width=5).grid(column=2, row=0, sticky=(tk.S))
+        newframe.grid(column=1, row=8, sticky=(tk.S))
         ttk.Button(
             sidebar,
             text="Refresh",
-            command=self.refresh_filters
-        ).grid(column=0, row=7, sticky=(tk.W,tk.S))
+            command=self.refresh_filters,
+            width=15
+        ).grid(column=0, row=8, sticky=(tk.W,tk.S))
 
 
         ttk.Button(
