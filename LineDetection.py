@@ -72,9 +72,52 @@ class LineDetection:
         for l in self.detected_lines:
             x0, y0, x1, y1 = l.flatten()
             cv2.line(empty, (int(x0), int(y0)), (int(x1), int(y1)), 255, 2, cv2.LINE_AA)
+        self.check_lines_near_components()
         img = cv2.addWeighted(img, 1, empty, 1, 0)
         return img
-    
+
+    def check_lines_near_components(self, threshold=3):
+        lines_to_remove = []
+        for c in self.components:
+            xmin, ymin, xmax, ymax = c
+            for line in self.detected_lines:
+                x0, y0, x1, y1 = line.flatten()
+                # Check if line is close to the left side (xmin, ymin) to (xmin, ymax) and parallel
+                if (abs(x0 - xmin) <= threshold or abs(x1 - xmin) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1):
+                    if (ymin <= y0 <= ymax) or (ymin <= y1 <= ymax):
+                        lines_to_remove.append(tuple(line.flatten()))
+                        continue
+
+                # Check if line is close to the right side (xmax, ymin) to (xmax, ymax) and parallel
+                if (abs(x0 - xmax) <= threshold or abs(x1 - xmax) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1):
+                    if (ymin <= y0 <= ymax) or (ymin <= y1 <= ymax):
+                        lines_to_remove.append(tuple(line.flatten()))
+                        continue
+
+                # Check if line is close to the top side (xmin, ymin) to (xmax, ymin) and parallel
+                if (abs(y0 - ymin) <= threshold or abs(y1 - ymin) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1,top=True):
+                    if (xmin <= x0 <= xmax) or (xmin <= x1 <= xmax):
+                        lines_to_remove.append(tuple(line.flatten()))
+                        continue
+
+                # Check if line is close to the bottom side (xmin, ymax) to (xmax, ymax) and parallel
+                if (abs(y0 - ymax) <= threshold or abs(y1 - ymax) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1,True):
+                    if (xmin <= x0 <= xmax) or (xmin <= x1 <= xmax):
+                        lines_to_remove.append(tuple(line.flatten()))
+                        continue
+
+        # Remove lines that are close to any side of the component and parallel
+        self.detected_lines = [line for line in self.detected_lines if tuple(line.flatten()) not in lines_to_remove]
+
+    def is_parallel(self, x0, y0, x1, y1,top=False,angle_threshold=5):
+        angle = math.degrees(math.atan2(y1 - y0, x1 - x0))
+        if top:
+            # Check if the line is parallel to top/bottom
+            return abs(angle) < angle_threshold or abs(angle - 180) < angle_threshold or abs(angle + 180) < angle_threshold
+        else:
+            # Check if the line is parallel to sides
+            return abs(angle - 90) < angle_threshold or abs(angle + 90) < angle_threshold
+        
     def is_slanted(self,x0, y0, x1, y1, threshold=20):
         angle = math.degrees(math.atan2(y1 - y0, x1 - x0))
         return not (abs(angle) < threshold or abs(angle - 90) < threshold or abs(angle + 90) < threshold)
@@ -122,9 +165,9 @@ class LineDetection:
         vertical_lines = connect_vertical_lines(vertical_lines,line_gap,plane_gap)
         horizontal_lines = connect_horizontal_lines(horizontal_lines,line_gap,plane_gap)
         vertical_lines,horizontal_lines = connect_perpendicular_lines(vertical_lines,horizontal_lines,line_gap)
-
         all_lines = np.append(horizontal_lines,vertical_lines,axis=0)
-        self.show_lines(display_image,all_lines)
+        self.detected_lines = all_lines
+        self.straighten_lines(display_image)
                     
     def add_lines(self, event, display_image):
         if self.add_mode:
