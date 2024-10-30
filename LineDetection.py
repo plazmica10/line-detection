@@ -3,6 +3,8 @@ import os
 from utils import *
 from LineMerger import *
 import xml.etree.ElementTree as ET
+import matplotlib.pyplot as plt # type: ignore
+from itertools import islice
 
 class LineDetection:
     def __init__(self):
@@ -17,6 +19,8 @@ class LineDetection:
         self.component_mask = None      #mask for components in the image
         self.show_lines_only = False    #flag for showing only lines
         self.scale = 0.97               #scale for LSD line detection
+        self.line_map = {}            #map of lines to lines
+        self.line_component_map = {}  #map of lines to components
 
     def open_image(self,display_image,parent_window):
         file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.png")],parent=parent_window)
@@ -72,8 +76,10 @@ class LineDetection:
         for l in self.detected_lines:
             x0, y0, x1, y1 = l.flatten()
             cv2.line(empty, (int(x0), int(y0)), (int(x1), int(y1)), 255, 2, cv2.LINE_AA)
+        
         self.check_lines_near_components()
         img = cv2.addWeighted(img, 1, empty, 1, 0)
+
         return img
 
     def check_lines_near_components(self, threshold=3):
@@ -82,33 +88,73 @@ class LineDetection:
             xmin, ymin, xmax, ymax = c
             for line in self.detected_lines:
                 x0, y0, x1, y1 = line.flatten()
-                # Check if line is close to the left side (xmin, ymin) to (xmin, ymax) and parallel
-                if (abs(x0 - xmin) <= threshold or abs(x1 - xmin) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1):
+                #line on left
+                if (abs(x0 - xmin) <= threshold or abs(x1 - xmin) <= threshold) and self.is_parallel(x0, y0, x1, y1):
                     if (ymin <= y0 <= ymax) or (ymin <= y1 <= ymax):
                         lines_to_remove.append(tuple(line.flatten()))
                         continue
 
-                # Check if line is close to the right side (xmax, ymin) to (xmax, ymax) and parallel
-                if (abs(x0 - xmax) <= threshold or abs(x1 - xmax) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1):
+                #line on right
+                if (abs(x0 - xmax) <= threshold or abs(x1 - xmax) <= threshold) and self.is_parallel(x0, y0, x1, y1):
                     if (ymin <= y0 <= ymax) or (ymin <= y1 <= ymax):
                         lines_to_remove.append(tuple(line.flatten()))
                         continue
 
-                # Check if line is close to the top side (xmin, ymin) to (xmax, ymin) and parallel
-                if (abs(y0 - ymin) <= threshold or abs(y1 - ymin) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1,top=True):
+                #line on top
+                if (abs(y0 - ymin) <= threshold or abs(y1 - ymin) <= threshold) and self.is_parallel(x0, y0, x1, y1,top=True):
                     if (xmin <= x0 <= xmax) or (xmin <= x1 <= xmax):
                         lines_to_remove.append(tuple(line.flatten()))
                         continue
 
-                # Check if line is close to the bottom side (xmin, ymax) to (xmax, ymax) and parallel
-                if (abs(y0 - ymax) <= threshold or abs(y1 - ymax) <= threshold) and self.is_parallel_to_sides(x0, y0, x1, y1,True):
+                #line is below
+                if (abs(y0 - ymax) <= threshold or abs(y1 - ymax) <= threshold) and self.is_parallel(x0, y0, x1, y1,True):
                     if (xmin <= x0 <= xmax) or (xmin <= x1 <= xmax):
                         lines_to_remove.append(tuple(line.flatten()))
                         continue
 
+        print(self.line_component_map)
         # Remove lines that are close to any side of the component and parallel
         self.detected_lines = [line for line in self.detected_lines if tuple(line.flatten()) not in lines_to_remove]
 
+    def create_line_map(self,treshold=5):
+        for l1 in self.detected_lines:
+            x0, y0, x1, y1 = l1.flatten()
+            line1 = tuple((int(x0),int(y0),int(x1),int(y1)))
+            if line1 not in self.line_map:
+                self.line_map[line1] = []
+            for l2 in self.detected_lines:
+                if np.all(l1 != l2):
+                    x2, y2, x3, y3 = l2.flatten()
+                    line2 = tuple((int(x2),int(y2),int(x3),int(y3)))
+                    # Check if lines are connected (example condition: sharing an endpoint)
+                    if (abs(x0-x2) <= treshold and abs(y0-y2) <= treshold) or (abs(x0-x3) <= treshold and abs(y0-y3) <= treshold) or (abs(x1-x2) <= treshold and abs(y1-y2) <= treshold) or (abs(x1-x3) <= treshold and abs(y1-y3) <= treshold):
+                        self.line_map[line1].append(line2)
+                    elif self.is_point_near_line(x2,y2,x0,y0,x1,y1, treshold) or self.is_point_near_line(x3, y3, x0, y0, x1, y1, treshold):
+                        self.line_map[line1].append(line2)
+        # print(self.line_map)
+        # self.show_connections()
+        return self.line_map
+    
+    def create_line_component_map(self,threshold=5):
+        for c in self.components:
+            xmin, ymin, xmax, ymax = c
+            for line in self.detected_lines:
+                x0,y0,x1,y1 = line.flatten()
+
+                if c not in self.line_component_map:
+                    self.line_component_map[c] = []
+
+                if self.is_point_near_line(x0,y0,xmin,ymin,xmax,ymin,threshold) or self.is_point_near_line(x1, y1, xmin, ymin, xmax, ymin, threshold):
+                    self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
+                elif self.is_point_near_line(x0,y0,xmin,ymax,xmax,ymax,threshold) or self.is_point_near_line(x1, y1, xmin, ymax, xmax, ymax, threshold):
+                    self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
+                elif self.is_point_near_line(x0,y0,xmin,ymin,xmin,ymax,threshold) or self.is_point_near_line(x1, y1, xmin, ymin, xmin, ymax, threshold):
+                    self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
+                elif self.is_point_near_line(x0,y0,xmax,ymin,xmax,ymax,threshold) or self.is_point_near_line(x1, y1, xmax, ymin, xmax, ymax, threshold):
+                    self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
+        # print(self.line_component_map)
+        return self.line_component_map
+    
     def is_parallel(self, x0, y0, x1, y1,top=False,angle_threshold=5):
         angle = math.degrees(math.atan2(y1 - y0, x1 - x0))
         if top:
@@ -129,7 +175,8 @@ class LineDetection:
         bundler = Merger(min_distance=merging_gap)
         new_lines = bundler.process_lines(new_lines)
         new_lines = np.array([line for line in new_lines if not self.is_slanted(line[0][0], line[0][1], line[0][2], line[0][3])])
-        self.show_lines(display_image,new_lines)
+        self.detected_lines = new_lines
+        self.straighten_lines(display_image)
 
     def remove_short_lines(self,display_image,line_lengh):
         new_lines = np.array([line for line in self.detected_lines if np.sqrt((line[0][0] - line[0][2])**2 + (line[0][1] - line[0][3])**2) > line_lengh])
@@ -167,6 +214,9 @@ class LineDetection:
         vertical_lines,horizontal_lines = connect_perpendicular_lines(vertical_lines,horizontal_lines,line_gap)
         all_lines = np.append(horizontal_lines,vertical_lines,axis=0)
         self.detected_lines = all_lines
+        self.create_line_map()
+        self.create_line_component_map()
+        self.show_connections()
         self.straighten_lines(display_image)
                     
     def add_lines(self, event, display_image):
@@ -186,30 +236,30 @@ class LineDetection:
         if self.remove_mode:
             click_point = (event.x, event.y)
             click_scaled = self.scale_to_original(click_point)
-
-            def is_point_near_line(px, py, x1, y1, x2, y2, padding):
-                len = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                if len < 1e-6:
-                    return False
-                #project point onto line
-                d = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / (len ** 2)
-                if d < 0 or d > 1:
-                    return False
-                #find intersection point of line and projection
-                ix = x1 + d * (x2 - x1)
-                iy = y1 + d * (y2 - y1)
-                #check if intersection point is close to the point
-                distance = np.sqrt((px - ix) ** 2 + (py - iy) ** 2)
-                return distance <= padding
             
             for i, line in enumerate(self.detected_lines):
                 x1, y1, x2, y2 = line.flatten()
-                if is_point_near_line(click_scaled[0], click_scaled[1], x1, y1, x2, y2, padding):
+                if self.is_point_near_line(click_scaled[0], click_scaled[1], x1, y1, x2, y2, padding):
                     self.detected_lines = np.delete(self.detected_lines, i, axis=0)
                     break
             self.remove_mode = True
             self.show_lines(display_image,self.detected_lines)
-        
+
+    def is_point_near_line(self,px, py, x1, y1, x2, y2, padding):
+        len = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        if len < 1e-6:
+            return False
+        #project point onto line
+        d = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / (len ** 2)
+        if d < 0 or d > 1:
+            return False
+        #find intersection point of line and projection
+        ix = x1 + d * (x2 - x1)
+        iy = y1 + d * (y2 - y1)
+        #check if intersection point is close to the point
+        distance = np.sqrt((px - ix) ** 2 + (py - iy) ** 2)
+        return distance <= padding
+    
     ###DISPLAY FUNCTION###
     def show_lines(self,display_image,new_lines):
         self.detected_lines = new_lines
@@ -254,3 +304,41 @@ class LineDetection:
         self.remove_mode = False
         self.show_lines_only = False
         self.show_image(self.original_image,display_image)
+
+    def show_connections(self):
+        plt.figure(figsize=(10, 10))
+        
+        #plot all lines
+        for line in self.detected_lines:
+            x0, y0, x1, y1 = line.flatten()
+            plt.plot([x0, x1], [y0, y1], 'b-')
+
+        #access component from the map
+        item = next(islice(self.line_component_map.items(), 7, 8))
+        component, line = item
+        xmin, ymin, xmax, ymax = component
+
+        plt.plot([xmin, xmax, xmax, xmin, xmin], [ymin, ymin, ymax, ymax, ymin], 'c4-', linewidth=2)
+        for l in line:
+            x0, y0, x1, y1 = l
+            plt.plot([x0, x1], [y0, y1], 'y-')
+        #plot the selected component and its line
+
+
+        #access an item from the map
+        line = next(islice(self.line_map.items(), 3, 4))
+        line1, connections = line
+
+        #plot the selected line and its connections
+        x0, y0, x1, y1 = line1
+        plt.plot([x0, x1], [y0, y1], 'g-', linewidth=2) 
+
+        for line2 in connections:
+            x2, y2, x3, y3 = line2
+            plt.plot([x2, x3], [y2, y3], 'r--')
+
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.title('First Line Connection')
+        plt.gca().invert_yaxis()
+        plt.show()
