@@ -12,15 +12,15 @@ class LineDetection:
         self.detected_lines = None      #original lines detected upon which changes are performed
         self.original_image = None      #original image for display, to simulate real time changes
         self.add_mode = False           #flag for adding lines toggle button
-        self.remove_mode = False
+        self.remove_mode = False        #flag for removing lines toggle button
         self.start_point = None         #starting point of the line
         self.original_dimensions = None #original image dimensions
         self.resized_dimensions = None  #resized image dimensions
         self.component_mask = None      #mask for components in the image
         self.show_lines_only = False    #flag for showing only lines
         self.scale = 0.97               #scale for LSD line detection
-        self.line_map = {}            #map of lines to lines
-        self.line_component_map = {}  #map of lines to components
+        self.line_map = {}              #map of lines to lines
+        self.line_component_map = {}    #map of lines to components
 
     def open_image(self,display_image,parent_window):
         file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.png")],parent=parent_window)
@@ -131,28 +131,18 @@ class LineDetection:
                         self.line_map[line1].append(line2)
                     elif self.is_point_near_line(x2,y2,x0,y0,x1,y1, treshold) or self.is_point_near_line(x3, y3, x0, y0, x1, y1, treshold):
                         self.line_map[line1].append(line2)
-        # print(self.line_map)
-        # self.show_connections()
         return self.line_map
     
     def create_line_component_map(self,threshold=5):
         for c in self.components:
-            xmin, ymin, xmax, ymax = c
             for line in self.detected_lines:
-                x0,y0,x1,y1 = line.flatten()
 
                 if c not in self.line_component_map:
                     self.line_component_map[c] = []
 
-                if self.is_point_near_line(x0,y0,xmin,ymin,xmax,ymin,threshold) or self.is_point_near_line(x1, y1, xmin, ymin, xmax, ymin, threshold):
+                if self.are_connected(line,c,threshold):
+                    x0, y0, x1, y1 = line.flatten()
                     self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
-                elif self.is_point_near_line(x0,y0,xmin,ymax,xmax,ymax,threshold) or self.is_point_near_line(x1, y1, xmin, ymax, xmax, ymax, threshold):
-                    self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
-                elif self.is_point_near_line(x0,y0,xmin,ymin,xmin,ymax,threshold) or self.is_point_near_line(x1, y1, xmin, ymin, xmin, ymax, threshold):
-                    self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
-                elif self.is_point_near_line(x0,y0,xmax,ymin,xmax,ymax,threshold) or self.is_point_near_line(x1, y1, xmax, ymin, xmax, ymax, threshold):
-                    self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
-        # print(self.line_component_map)
         return self.line_component_map
     
     def is_parallel(self, x0, y0, x1, y1,top=False,angle_threshold=5):
@@ -342,3 +332,11 @@ class LineDetection:
         plt.title('First Line Connection')
         plt.gca().invert_yaxis()
         plt.show()
+
+    def are_connected(self,line,component,threshold=5):
+        x0, y0, x1, y1 = line.flatten()
+        xmin, ymin, xmax, ymax = component
+        return (self.is_point_near_line(x0,y0,xmin,ymin,xmax,ymin,threshold) or self.is_point_near_line(x1, y1, xmin, ymin, xmax, ymin, threshold)
+        or self.is_point_near_line(x0,y0,xmin,ymax,xmax,ymax,threshold) or self.is_point_near_line(x1, y1, xmin, ymax, xmax, ymax, threshold)
+        or self.is_point_near_line(x0,y0,xmin,ymin,xmin,ymax,threshold) or self.is_point_near_line(x1, y1, xmin, ymin, xmin, ymax, threshold)
+        or self.is_point_near_line(x0,y0,xmax,ymin,xmax,ymax,threshold) or self.is_point_near_line(x1, y1, xmax, ymin, xmax, ymax, threshold))
