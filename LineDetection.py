@@ -6,6 +6,13 @@ import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt # type: ignore
 from itertools import islice
 
+from CircuitSchematicImageInterpreter.SPICE import createNetList # type: ignore
+from CircuitSchematicImageInterpreter.io import importImage, exportComponent # type: ignore
+from CircuitSchematicImageInterpreter.actions import wireScanHough, objectDetection, junctionDetection # type: ignore
+from CircuitSchematicImageInterpreter.ocr import OCRComponents # type: ignore
+import pytesseract # type: ignore
+import os
+
 class LineDetection:
     def __init__(self):
         self.components = []            #components detected in the image from VOC data
@@ -32,6 +39,8 @@ class LineDetection:
             self.original_dimensions = img.shape[:2]
 
             self.components.clear()
+            self.line_map.clear()
+            self.line_component_map.clear()
             self.component_mask = np.ones_like(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)) * 255
             # Load VOC data
             voc_file_path = file_path.replace('.jpg', '.xml').replace('.png', '.xml')
@@ -47,14 +56,48 @@ class LineDetection:
                     self.components.append((xmin, ymin, xmax, ymax))
                     cv2.rectangle(self.component_mask, (xmin, ymin), (xmax, ymax), 0, -1)
             self.scale = simpledialog.askfloat("Input", "Enter scale of image (0-1) for LSD:", minvalue=0, maxvalue=1, initialvalue=0.97,parent=parent_window)
-            self.show_image(img,display_image)
+            self.model_type = simpledialog.askinteger("Input", "Enter model type (0-lsd/1-pretrained):", initialvalue="0",parent=parent_window)
+            if self.model_type == 1:
+                self.model1(display_image,file_path)
+            else:
+                self.show_image(img,display_image)
+
+    def model1(self,display_image,path):
+        # Set the Tesseract executable path for macOS
+        pytesseract.pytesseract.tesseract_cmd = '/opt/homebrew/bin/tesseract'
+        os.environ['TESSDATA_PREFIX'] = '/opt/homebrew/share/tessdata'
+
+        # Import image
+        image = importImage(path)
+
+        # Get Wires
+        HorizWires, VertWires = wireScanHough(image)
+
+        # Get Components
+        components = objectDetection(HorizWires, VertWires)
+
+        empty = np.ones(self.original_image.shape[:2], np.uint8) * 255
+
+        for wire in HorizWires:
+            y1,y2,x1,x2 = wire.line
+            cv2.line(empty, (int(x1), int(y1)), (int(x2), int(y2)), 0, 2, cv2.LINE_AA)
+
+        for wire in VertWires: 
+            y1,y2,x1,x2 = wire.line
+            cv2.line(empty, (int(x1), int(y1)), (int(x2), int(y2)), 0, 2, cv2.LINE_AA)
+
+        cv2.imshow('Components', empty)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     def show_image(self,img,display_image):
         lined_image = self.line_detection(img, self.component_mask)
         self.highlight_components(lined_image)
         resized_image = resize_image(lined_image) 
         self.resized_dimensions = resized_image.shape[:2]
-        display_image(resized_image)
+        self.merge_lines(display_image,5)
+        self.merge_lines(display_image,5)
+        self.connect_lines(display_image,line_gap=25,plane_gap=5)
 
     def highlight_components(self, img):
         for rect in self.components:
@@ -115,22 +158,42 @@ class LineDetection:
         print(self.line_component_map)
         # Remove lines that are close to any side of the component and parallel
         self.detected_lines = [line for line in self.detected_lines if tuple(line.flatten()) not in lines_to_remove]
-
-    def create_line_map(self,treshold=5):
+    
+    #TODO: use binary tree ?
+    def create_line_map(self,treshold=10):
         for l1 in self.detected_lines:
             x0, y0, x1, y1 = l1.flatten()
             line1 = tuple((int(x0),int(y0),int(x1),int(y1)))
             if line1 not in self.line_map:
                 self.line_map[line1] = []
             for l2 in self.detected_lines:
-                if np.all(l1 != l2):
+                if np.any(l1 != l2):
                     x2, y2, x3, y3 = l2.flatten()
                     line2 = tuple((int(x2),int(y2),int(x3),int(y3)))
-                    # Check if lines are connected (example condition: sharing an endpoint)
+                    if line2 not in self.line_map:
+                        self.line_map[line2] = []
+                    #check if the lines are directly connected
                     if (abs(x0-x2) <= treshold and abs(y0-y2) <= treshold) or (abs(x0-x3) <= treshold and abs(y0-y3) <= treshold) or (abs(x1-x2) <= treshold and abs(y1-y2) <= treshold) or (abs(x1-x3) <= treshold and abs(y1-y3) <= treshold):
                         self.line_map[line1].append(line2)
+                        if np.all(l1 != l2):
+                            self.line_map[line2].append(line1)
+                    #check if the lines are connected through a point
                     elif self.is_point_near_line(x2,y2,x0,y0,x1,y1, treshold) or self.is_point_near_line(x3, y3, x0, y0, x1, y1, treshold):
                         self.line_map[line1].append(line2)
+                        if np.all(l1 != l2):
+                            self.line_map[line2].append(line1)
+
+                    elif self.is_point_near_line(x0,y0,x2,y2,x3,y3,treshold) or self.is_point_near_line(x1,y1,x2,y2,x3,y3,treshold):
+                        self.line_map[line1].append(line2)
+                        if np.all(l1 != l2):
+                            self.line_map[line2].append(line1)
+
+        for line, connections in self.line_map.items():
+            for line2 in connections:
+                for line3 in self.line_map[line2]:
+                    if line3 not in connections:
+                        if line3 != line:
+                            self.line_map[line].append(line3)
         return self.line_map
     
     def create_line_component_map(self,threshold=5):
@@ -143,6 +206,7 @@ class LineDetection:
                 if self.are_connected(line,c,threshold):
                     x0, y0, x1, y1 = line.flatten()
                     self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
+                    
         return self.line_component_map
     
     def is_parallel(self, x0, y0, x1, y1,top=False,angle_threshold=5):
@@ -204,11 +268,14 @@ class LineDetection:
         vertical_lines,horizontal_lines = connect_perpendicular_lines(vertical_lines,horizontal_lines,line_gap)
         all_lines = np.append(horizontal_lines,vertical_lines,axis=0)
         self.detected_lines = all_lines
+        for c in self.components:
+            xmin, ymin, xmax, ymax = c
+            if abs(xmin-xmax) > abs(ymin-ymax):
+                self.detected_lines = np.append(self.detected_lines,[[[xmin,(ymin+ymax)/2,xmin-3,(ymin+ymax)/2]]],axis=0)
         self.create_line_map()
         self.create_line_component_map()
-        self.show_connections()
-        self.straighten_lines(display_image)
-                    
+        self.straighten_lines(display_image)  
+    
     def add_lines(self, event, display_image):
         if self.add_mode:
             if self.start_point is None:
@@ -304,7 +371,7 @@ class LineDetection:
             plt.plot([x0, x1], [y0, y1], 'b-')
 
         #access component from the map
-        item = next(islice(self.line_component_map.items(), 7, 8))
+        item = next(islice(self.line_component_map.items(), 1, 2))
         component, line = item
         xmin, ymin, xmax, ymax = component
 
