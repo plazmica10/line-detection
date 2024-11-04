@@ -59,9 +59,14 @@ class LineDetection:
             self.model_type = simpledialog.askinteger("Input", "Enter model type (0-lsd/1-pretrained):", initialvalue="0",parent=parent_window)
             if self.model_type == 1:
                 self.model1(display_image,file_path)
+            elif self.model_type == 2:
+                self.fclip(file_path,display_image)
             else:
                 self.show_image(img,display_image)
 
+    def fclip(self,path,display_image):
+        pass
+    
     def model1(self,display_image,path):
         # Set the Tesseract executable path for macOS
         pytesseract.pytesseract.tesseract_cmd = '/opt/homebrew/bin/tesseract'
