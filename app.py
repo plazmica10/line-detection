@@ -96,10 +96,10 @@ class GUI:
         ttk.Button(
             sidebar,
             text="Show Connections",
-            command=lambda: self.line_detection.show_connections(),
+            command=lambda: self.line_detection.get_connections(self.display_image),
             width=15
         ).grid(column=0, row=4, sticky=(tk.W))
-
+    
         self.add_var = tk.BooleanVar()
         ttk.Checkbutton(
             sidebar,

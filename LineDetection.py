@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt # type: ignore
 from itertools import islice
 
+#pip install git+https://github.com/C-R-Kelly/CircuitSchematicImageInterpreter
 from CircuitSchematicImageInterpreter.SPICE import createNetList # type: ignore
 from CircuitSchematicImageInterpreter.io import importImage, exportComponent # type: ignore
 from CircuitSchematicImageInterpreter.actions import wireScanHough, objectDetection, junctionDetection # type: ignore
@@ -67,19 +68,64 @@ class LineDetection:
     def fclip(self,path,display_image):
         pass
     
+
+    def get_connections(self,display_image):
+        class Wire:
+            def __init__(self,coordinates,connections,color=None):
+                self.coordinates = coordinates 
+                self.connections = connections
+                self.color = color
+                self.drawn = False
+            
+            def set_color(self,color):
+                self.color = color
+
+            def draw(self,img):
+                x0,y0,x1,y1 = self.coordinates
+                cv2.line(img, (int(x0), int(y0)), (int(x1), int(y1)), self.color, 1, cv2.LINE_AA)
+                for connection in self.connections:
+                    x2,y2,x3,y3 = connection
+                    cv2.line(img, (int(x2), int(y2)), (int(x3), int(y3)), self.color, 1, cv2.LINE_AA)
+
+        empty = np.ones_like(self.original_image) * 255
+        colors = [
+                (0, 255, 0),       # Green
+                (0, 100, 0),       # Dark Green
+                (128, 0, 128),     # Purple
+                (255, 102, 204),   # Rose
+                (255, 0, 0),       # Red
+                (0, 0, 255),       # Blue
+                (0, 0, 139),       # Dark Blue
+                (165, 42, 42),     # Brown
+                (128, 0, 128),     # Purple
+                (255, 165, 0)      # Orange
+            ]
+        
+        color_index = 0
+        wires = {}
+        components = {}
+
+        for line, connections in self.line_map.items():
+            color = colors[color_index % len(colors)]
+            color_index += 1
+            wires[line] = Wire(line, connections, color)
+
+        for wire in wires.values():
+            wire.draw(empty)
+
+        display_image(resize_image(empty))
+
     def model1(self,display_image,path):
-        # Set the Tesseract executable path for macOS
+        #setting tessaract path and data path
         pytesseract.pytesseract.tesseract_cmd = '/opt/homebrew/bin/tesseract'
         os.environ['TESSDATA_PREFIX'] = '/opt/homebrew/share/tessdata'
 
         # Import image
         image = importImage(path)
-
         # Get Wires
         HorizWires, VertWires = wireScanHough(image)
-
         # Get Components
-        components = objectDetection(HorizWires, VertWires)
+        # components = objectDetection(HorizWires, VertWires)
 
         empty = np.ones(self.original_image.shape[:2], np.uint8) * 255
 
@@ -91,16 +137,13 @@ class LineDetection:
             y1,y2,x1,x2 = wire.line
             cv2.line(empty, (int(x1), int(y1)), (int(x2), int(y2)), 0, 2, cv2.LINE_AA)
 
-        cv2.imshow('Components', empty)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        display_image(resize_image(empty))
 
     def show_image(self,img,display_image):
         lined_image = self.line_detection(img, self.component_mask)
         self.highlight_components(lined_image)
         resized_image = resize_image(lined_image) 
         self.resized_dimensions = resized_image.shape[:2]
-        self.merge_lines(display_image,5)
         self.merge_lines(display_image,5)
         self.connect_lines(display_image,line_gap=25,plane_gap=5)
 
@@ -160,45 +203,76 @@ class LineDetection:
                         lines_to_remove.append(tuple(line.flatten()))
                         continue
 
-        print(self.line_component_map)
         # Remove lines that are close to any side of the component and parallel
         self.detected_lines = [line for line in self.detected_lines if tuple(line.flatten()) not in lines_to_remove]
     
-    #TODO: use binary tree ?
-    def create_line_map(self,treshold=10):
-        for l1 in self.detected_lines:
-            x0, y0, x1, y1 = l1.flatten()
-            line1 = tuple((int(x0),int(y0),int(x1),int(y1)))
-            if line1 not in self.line_map:
-                self.line_map[line1] = []
-            for l2 in self.detected_lines:
-                if np.any(l1 != l2):
-                    x2, y2, x3, y3 = l2.flatten()
-                    line2 = tuple((int(x2),int(y2),int(x3),int(y3)))
-                    if line2 not in self.line_map:
-                        self.line_map[line2] = []
-                    #check if the lines are directly connected
-                    if (abs(x0-x2) <= treshold and abs(y0-y2) <= treshold) or (abs(x0-x3) <= treshold and abs(y0-y3) <= treshold) or (abs(x1-x2) <= treshold and abs(y1-y2) <= treshold) or (abs(x1-x3) <= treshold and abs(y1-y3) <= treshold):
-                        self.line_map[line1].append(line2)
-                        if np.all(l1 != l2):
-                            self.line_map[line2].append(line1)
-                    #check if the lines are connected through a point
-                    elif self.is_point_near_line(x2,y2,x0,y0,x1,y1, treshold) or self.is_point_near_line(x3, y3, x0, y0, x1, y1, treshold):
-                        self.line_map[line1].append(line2)
-                        if np.all(l1 != l2):
-                            self.line_map[line2].append(line1)
 
-                    elif self.is_point_near_line(x0,y0,x2,y2,x3,y3,treshold) or self.is_point_near_line(x1,y1,x2,y2,x3,y3,treshold):
-                        self.line_map[line1].append(line2)
-                        if np.all(l1 != l2):
-                            self.line_map[line2].append(line1)
+    #TODO: unoptimized, use tree traversal for faster results ?
+    def create_line_map(self,threshold=10):
+        def check_connection(l1, l2):
+            x0, y0, x1, y1 = l1
+            x2, y2, x3, y3 = l2
+            
+            # Check endpoint connections
+            endpoints = [
+                (abs(x0-x2) <= threshold and abs(y0-y2) <= threshold),
+                (abs(x0-x3) <= threshold and abs(y0-y3) <= threshold),
+                (abs(x1-x2) <= threshold and abs(y1-y2) <= threshold),
+                (abs(x1-x3) <= threshold and abs(y1-y3) <= threshold)
+            ]
+            
+            if any(endpoints):
+                return True
+                
+            # Check line-to-point connections
+            point_to_line = [
+                self.is_point_near_line(x2, y2, x0, y0, x1, y1, threshold),
+                self.is_point_near_line(x3, y3, x0, y0, x1, y1, threshold),
+                self.is_point_near_line(x0, y0, x2, y2, x3, y3, threshold),
+                self.is_point_near_line(x1, y1, x2, y2, x3, y3, threshold)
+            ]
+            
+            return any(point_to_line)
+        from collections import deque
+        self.line_map = {}
+        processed_lines = set()
+        lines_queue = deque()
 
-        for line, connections in self.line_map.items():
-            for line2 in connections:
-                for line3 in self.line_map[line2]:
-                    if line3 not in connections:
-                        if line3 != line:
-                            self.line_map[line].append(line3)
+        for line in self.detected_lines:
+            x0, y0, x1, y1 = line.flatten()
+            line = tuple((int(x0),int(y0),int(x1),int(y1)))
+            lines_queue.append(line)
+            self.line_map[line] = []
+        
+        while lines_queue:
+            current_line = lines_queue.popleft()
+
+            if current_line in processed_lines:
+                continue
+
+            for other_line in self.detected_lines:
+                if np.any(current_line != other_line):
+                    x0,y0,x1,y1 = other_line.flatten()
+                    other_line = tuple((int(x0),int(y0),int(x1),int(y1)))
+                    if np.all(current_line != other_line):
+                        if check_connection(current_line, other_line):
+                            self.line_map[current_line].append(other_line)
+                            self.line_map[other_line].append(current_line)
+            
+            processed_lines.add(current_line)
+
+        # Add indirect connections
+        for line in self.line_map:
+            indirect_connections = set()
+            # Check connections of direct connections
+            for connected_line in self.line_map[line]:
+                for indirect_line in self.line_map[connected_line]:
+                    if np.all(line != indirect_line):
+                        indirect_connections.add(indirect_line)
+            
+            # Add indirect connections to line_map
+            self.line_map[line].extend(list(indirect_connections))
+
         return self.line_map
     
     def create_line_component_map(self,threshold=5):
@@ -211,7 +285,7 @@ class LineDetection:
                 if self.are_connected(line,c,threshold):
                     x0, y0, x1, y1 = line.flatten()
                     self.line_component_map[c].append(tuple((int(x0),int(y0),int(x1),int(y1))))
-                    
+
         return self.line_component_map
     
     def is_parallel(self, x0, y0, x1, y1,top=False,angle_threshold=5):
@@ -367,46 +441,8 @@ class LineDetection:
         self.show_lines_only = False
         self.show_image(self.original_image,display_image)
 
-    def show_connections(self):
-        plt.figure(figsize=(10, 10))
-        
-        #plot all lines
-        for line in self.detected_lines:
-            x0, y0, x1, y1 = line.flatten()
-            plt.plot([x0, x1], [y0, y1], 'b-')
-
-        #access component from the map
-        item = next(islice(self.line_component_map.items(), 1, 2))
-        component, line = item
-        xmin, ymin, xmax, ymax = component
-
-        plt.plot([xmin, xmax, xmax, xmin, xmin], [ymin, ymin, ymax, ymax, ymin], 'c4-', linewidth=2)
-        for l in line:
-            x0, y0, x1, y1 = l
-            plt.plot([x0, x1], [y0, y1], 'y-')
-        #plot the selected component and its line
-
-
-        #access an item from the map
-        line = next(islice(self.line_map.items(), 3, 4))
-        line1, connections = line
-
-        #plot the selected line and its connections
-        x0, y0, x1, y1 = line1
-        plt.plot([x0, x1], [y0, y1], 'g-', linewidth=2) 
-
-        for line2 in connections:
-            x2, y2, x3, y3 = line2
-            plt.plot([x2, x3], [y2, y3], 'r--')
-
-        plt.xlabel('X')
-        plt.ylabel('Y')
-        plt.title('First Line Connection')
-        plt.gca().invert_yaxis()
-        plt.show()
-
     def are_connected(self,line,component,threshold=5):
-        x0, y0, x1, y1 = line.flatten()
+        x0,y0,x1,y1 = line.flatten()
         xmin, ymin, xmax, ymax = component
         return (self.is_point_near_line(x0,y0,xmin,ymin,xmax,ymin,threshold) or self.is_point_near_line(x1, y1, xmin, ymin, xmax, ymin, threshold)
         or self.is_point_near_line(x0,y0,xmin,ymax,xmax,ymax,threshold) or self.is_point_near_line(x1, y1, xmin, ymax, xmax, ymax, threshold)
